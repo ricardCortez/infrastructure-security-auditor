@@ -1,0 +1,133 @@
+{
+  "server": "10.0.1.55",
+  "timestamp": "2026-03-20T14:30:17+00:00",
+  "scan_duration_seconds": 18.7,
+  "findings": [
+    {
+      "check": "Firewall Status",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "description": "Windows Firewall is DISABLED on 1 profile(s): Public.",
+      "recommendation": "Enable the Windows Firewall on all profiles via: Set-NetFirewallProfile -All -Enabled True",
+      "raw_output": "[{\"Name\":\"Domain\",\"Enabled\":true},{\"Name\":\"Private\",\"Enabled\":true},{\"Name\":\"Public\",\"Enabled\":false}]"
+    },
+    {
+      "check": "SMBv1 Protocol",
+      "status": "FAIL",
+      "severity": "CRITICAL",
+      "description": "SMBv1 is ENABLED. This legacy protocol is exploited by EternalBlue (MS17-010) and ransomware such as WannaCry.",
+      "recommendation": "Disable SMBv1 immediately: Set-SmbServerConfiguration -EnableSMB1Protocol $false -Force",
+      "raw_output": "True"
+    },
+    {
+      "check": "LLMNR/NetBIOS",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "description": "Name-poisoning attack surface is EXPOSED: LLMNR is enabled; NetBIOS over TCP/IP is enabled on one or more adapters.",
+      "recommendation": "Disable LLMNR via GPO: Computer Configuration → Administrative Templates → Network → DNS Client → Turn Off Multicast Name Resolution = Enabled. Disable NetBIOS via NIC settings or DHCP option 001.",
+      "raw_output": "LLMNR: 1\nNetBIOS: 0\n0"
+    },
+    {
+      "check": "Windows Defender",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "description": "Windows Defender identifies issues: Antivirus signatures are 31 day(s) old (>7 days).",
+      "recommendation": "Enable Defender: Set-MpPreference -DisableRealtimeMonitoring $false. Update signatures: Update-MpSignature.",
+      "raw_output": "{\"RealTimeProtectionEnabled\":true,\"AntivirusEnabled\":true,\"AntivirusSignatureAge\":31}"
+    },
+    {
+      "check": "TLS Versions",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "description": "Deprecated protocols enabled: TLS 1.0, TLS 1.1. These are vulnerable to POODLE, BEAST, DROWN, and downgrade attacks.",
+      "recommendation": "Disable deprecated protocols via SCHANNEL registry keys. Use IIS Crypto or configure SCHANNEL manually.",
+      "raw_output": "SSL 2.0: 0\nSSL 3.0: 0\nTLS 1.0: NOT_SET\nTLS 1.1: NOT_SET"
+    },
+    {
+      "check": "Password Policies",
+      "status": "FAIL",
+      "severity": "MEDIUM",
+      "description": "Password policy weaknesses detected: Minimum password length is 7 (should be ≥12); Account lockout threshold is 0 (accounts never locked out).",
+      "recommendation": "Configure via Group Policy: Computer Configuration → Windows Settings → Security Settings → Account Policies → Password Policy. Set min length ≥12, max age ≤90 days, enable complexity, set lockout threshold ≤5.",
+      "raw_output": "Force user logoff how long after time expires?:       Never\nMinimum password age (days):                         0\nMaximum password age (days):                         42\nMinimum password length:                             7\nLength of password history maintained:               0\nLockout threshold:                                   Never"
+    },
+    {
+      "check": "RDP NLA",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "description": "RDP does NOT require Network Level Authentication (NLA). This exposes the login screen to unauthenticated users and is exploited by BlueKeep (CVE-2019-0708).",
+      "recommendation": "Enable NLA: Set-ItemProperty -Path 'HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp' -Name UserAuthentication -Value 1 or via System Properties → Remote → Require NLA.",
+      "raw_output": "0"
+    },
+    {
+      "check": "Windows Update",
+      "status": "FAIL",
+      "severity": "MEDIUM",
+      "description": "12 update(s) pending, including 3 CRITICAL patch(es). Unpatched systems are vulnerable to known exploits.",
+      "recommendation": "Apply all pending critical updates immediately via Windows Update.",
+      "raw_output": "{'total': 12, 'critical': 3}"
+    },
+    {
+      "check": "Admin Accounts",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "description": "Administrator account issues: 5 accounts in Administrators group (expected ≤3); Built-in Administrator account is enabled. Current members: Administrator, CORP\\Domain Admins, CORP\\svc-admin, john.smith, helpdesk.",
+      "recommendation": "Disable built-in Administrator: Disable-LocalUser -Name Administrator. Remove unnecessary accounts from Administrators group. Use LAPS for local admin management.",
+      "raw_output": "[{\"Name\":\"Administrator\"},{\"Name\":\"CORP\\\\Domain Admins\"},{\"Name\":\"CORP\\\\svc-admin\"},{\"Name\":\"john.smith\"},{\"Name\":\"helpdesk\"}]"
+    },
+    {
+      "check": "Privilege Creep",
+      "status": "WARNING",
+      "severity": "MEDIUM",
+      "description": "Multiple privileged groups have members: Backup Operators has 2 member(s); Remote Desktop Users has 1 member(s); Remote Management Users has 1 member(s).",
+      "recommendation": "Review and remove unnecessary memberships. Apply the principle of least privilege. Use Just-In-Time (JIT) access for privileged roles.",
+      "raw_output": "Backup Operators: CORP\\backup-svc,CORP\\old-backup\nRemote Desktop Users: CORP\\rd-users\nRemote Management Users: CORP\\winrm-svc\nPower Users: _EMPTY_"
+    },
+    {
+      "check": "Event Log Config",
+      "status": "FAIL",
+      "severity": "MEDIUM",
+      "description": "Event log configuration issues: Security log is only 20 MB (min recommended: 64 MB); System log is only 20 MB (min recommended: 64 MB).",
+      "recommendation": "Configure via GPO: Computer Configuration → Windows Settings → Security Settings → Event Log. Set Security log to ≥128 MB with RetentionDays=0 (overwrite as needed).",
+      "raw_output": "[{\"LogName\":\"Security\",\"MaximumSizeInBytes\":20971520,\"IsEnabled\":true},{\"LogName\":\"System\",\"MaximumSizeInBytes\":20971520,\"IsEnabled\":true},{\"LogName\":\"Application\",\"MaximumSizeInBytes\":20971520,\"IsEnabled\":true}]"
+    },
+    {
+      "check": "LSASS Protection",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "description": "LSASS is vulnerable to credential dumping: LSASS Protected Process Light (RunAsPPL) is not enabled; Credential Guard is not enabled. Tools like Mimikatz can extract plaintext credentials.",
+      "recommendation": "Enable RunAsPPL: Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa' -Name RunAsPPL -Value 1. Enable Credential Guard via GPO or Device Guard.",
+      "raw_output": "RunAsPPL= CredentialGuard="
+    },
+    {
+      "check": "Weak Ciphers",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "description": "Weak cipher suites detected: RC4, 3DES. These enable downgrade attacks and break-in via weak encryption.",
+      "recommendation": "Disable weak ciphers via SCHANNEL registry. Use IIS Crypto tool or configure via New-ItemProperty.",
+      "raw_output": "RC4: NOT_SET\nDES: 0\n3DES: NOT_SET\nNULL: 0\nEXPORT: 0"
+    },
+    {
+      "check": "File Sharing",
+      "status": "FAIL",
+      "severity": "MEDIUM",
+      "description": "2 file share(s) with overly permissive access: 'Public' grants Full to Everyone; 'Shared' grants Change to Authenticated Users.",
+      "recommendation": "Remove 'Everyone' and 'Authenticated Users' from share ACLs. Grant access only to specific groups (principle of least privilege).",
+      "raw_output": "[{\"Name\":\"Public\",\"Path\":\"D:\\\\Public\"},{\"Name\":\"Shared\",\"Path\":\"D:\\\\Shared\"}]\nPublic ACL: [{\"AccountName\":\"Everyone\",\"AccessRight\":\"Full\"}]\nShared ACL: [{\"AccountName\":\"Authenticated Users\",\"AccessRight\":\"Change\"}]"
+    },
+    {
+      "check": "Installed Software",
+      "status": "FAIL",
+      "severity": "LOW",
+      "description": "2 EOL/outdated application(s) detected: Java 8 Update 201, Adobe Flash Player 32.",
+      "recommendation": "Uninstall or upgrade EOL applications. EOL software no longer receives security patches.",
+      "raw_output": "[{\"DisplayName\":\"Java 8 Update 201\",\"DisplayVersion\":\"8.0.2010.9\"},{\"DisplayName\":\"Adobe Flash Player 32\",\"DisplayVersion\":\"32.0.0.101\"},{\"DisplayName\":\"Microsoft .NET Framework 4.8\",\"DisplayVersion\":\"4.8.03761\"}]"
+    }
+  ],
+  "total_checks": 15,
+  "summary": {
+    "PASS": 0,
+    "FAIL": 14,
+    "WARNING": 1
+  }
+}

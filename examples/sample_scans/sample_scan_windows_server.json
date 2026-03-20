@@ -1,0 +1,133 @@
+{
+  "server": "192.168.1.100",
+  "timestamp": "2026-03-20T09:15:42+00:00",
+  "scan_duration_seconds": 14.2,
+  "findings": [
+    {
+      "check": "Firewall Status",
+      "status": "PASS",
+      "severity": "HIGH",
+      "description": "Windows Firewall is enabled on all network profiles (Domain, Private, Public).",
+      "recommendation": "No action required. Periodically review firewall rules.",
+      "raw_output": "[{\"Name\":\"Domain\",\"Enabled\":true},{\"Name\":\"Private\",\"Enabled\":true},{\"Name\":\"Public\",\"Enabled\":true}]"
+    },
+    {
+      "check": "SMBv1 Protocol",
+      "status": "PASS",
+      "severity": "CRITICAL",
+      "description": "SMBv1 is disabled. The host is protected against EternalBlue-class attacks.",
+      "recommendation": "No action required.",
+      "raw_output": "False"
+    },
+    {
+      "check": "LLMNR/NetBIOS",
+      "status": "PASS",
+      "severity": "HIGH",
+      "description": "LLMNR and NetBIOS are disabled. Name-poisoning attack surface is minimised.",
+      "recommendation": "No action required.",
+      "raw_output": "LLMNR: 0\nNetBIOS: 2"
+    },
+    {
+      "check": "Windows Defender",
+      "status": "PASS",
+      "severity": "HIGH",
+      "description": "Windows Defender is active and signatures are current.",
+      "recommendation": "No action required. Ensure signatures update automatically.",
+      "raw_output": "{\"RealTimeProtectionEnabled\":true,\"AntivirusEnabled\":true,\"AntivirusSignatureAge\":1}"
+    },
+    {
+      "check": "TLS Versions",
+      "status": "PASS",
+      "severity": "HIGH",
+      "description": "No deprecated TLS/SSL protocols detected. Only TLS 1.2+ is active.",
+      "recommendation": "No action required.",
+      "raw_output": "SSL 2.0: 0\nSSL 3.0: 0\nTLS 1.0: 0\nTLS 1.1: 0"
+    },
+    {
+      "check": "Password Policies",
+      "status": "PASS",
+      "severity": "MEDIUM",
+      "description": "Password policy meets baseline requirements (length, age, lockout).",
+      "recommendation": "No action required.",
+      "raw_output": "Force user logoff how long after time expires?:       Never\nMinimum password age (days):                         1\nMaximum password age (days):                         90\nMinimum password length:                             14\nLength of password history maintained:               24\nLockout threshold:                                   5"
+    },
+    {
+      "check": "RDP NLA",
+      "status": "PASS",
+      "severity": "HIGH",
+      "description": "RDP requires Network Level Authentication (NLA).",
+      "recommendation": "No action required.",
+      "raw_output": "1"
+    },
+    {
+      "check": "Windows Update",
+      "status": "PASS",
+      "severity": "MEDIUM",
+      "description": "No pending Windows Updates detected.",
+      "recommendation": "No action required. Ensure automatic updates are configured.",
+      "raw_output": "{'total': 0, 'critical': 0}"
+    },
+    {
+      "check": "Admin Accounts",
+      "status": "PASS",
+      "severity": "HIGH",
+      "description": "Administrator group has 2 member(s): CORP\\Domain Admins, CORP\\svc-admin.",
+      "recommendation": "Periodically review and audit administrator group membership.",
+      "raw_output": "[{\"Name\":\"CORP\\\\Domain Admins\",\"ObjectClass\":\"Group\"},{\"Name\":\"CORP\\\\svc-admin\",\"ObjectClass\":\"User\"}]"
+    },
+    {
+      "check": "Privilege Creep",
+      "status": "PASS",
+      "severity": "MEDIUM",
+      "description": "Privileged group memberships appear within expected limits.",
+      "recommendation": "Periodically review privileged group memberships.",
+      "raw_output": "Backup Operators: _EMPTY_\nRemote Desktop Users: CORP\\RDP-Users\nRemote Management Users: _EMPTY_\nPower Users: _EMPTY_"
+    },
+    {
+      "check": "Event Log Config",
+      "status": "PASS",
+      "severity": "MEDIUM",
+      "description": "Event logs are configured with adequate sizes.",
+      "recommendation": "Consider forwarding logs to a SIEM for centralised retention.",
+      "raw_output": "[{\"LogName\":\"Security\",\"MaximumSizeInBytes\":134217728,\"IsEnabled\":true},{\"LogName\":\"System\",\"MaximumSizeInBytes\":134217728,\"IsEnabled\":true},{\"LogName\":\"Application\",\"MaximumSizeInBytes\":67108864,\"IsEnabled\":true}]"
+    },
+    {
+      "check": "LSASS Protection",
+      "status": "PASS",
+      "severity": "HIGH",
+      "description": "LSASS is protected (RunAsPPL or Credential Guard enabled).",
+      "recommendation": "No action required.",
+      "raw_output": "RunAsPPL=1 CredentialGuard=0"
+    },
+    {
+      "check": "Weak Ciphers",
+      "status": "PASS",
+      "severity": "HIGH",
+      "description": "No weak cipher suites (RC4, DES, 3DES, NULL, EXPORT) are enabled.",
+      "recommendation": "No action required.",
+      "raw_output": "RC4: 0\nDES: 0\n3DES: 0\nNULL: 0\nEXPORT: 0"
+    },
+    {
+      "check": "File Sharing",
+      "status": "PASS",
+      "severity": "MEDIUM",
+      "description": "No SMB shares with overly permissive Everyone/Authenticated Users access.",
+      "recommendation": "Periodically audit share permissions with Get-SmbShareAccess.",
+      "raw_output": "[{\"Name\":\"Data\",\"Path\":\"D:\\\\Data\"},{\"Name\":\"ADMIN$\",\"Path\":\"C:\\\\Windows\"},{\"Name\":\"C$\",\"Path\":\"C:\\\\\"}]"
+    },
+    {
+      "check": "Installed Software",
+      "status": "PASS",
+      "severity": "LOW",
+      "description": "No obvious EOL software detected from the installed packages list.",
+      "recommendation": "Maintain an up-to-date software inventory and regularly review EOL dates.",
+      "raw_output": "[{\"DisplayName\":\"Microsoft .NET Framework 4.8\",\"DisplayVersion\":\"4.8.03761\"},{\"DisplayName\":\"Microsoft Visual C++ 2019\",\"DisplayVersion\":\"14.29.30133\"}]"
+    }
+  ],
+  "total_checks": 15,
+  "summary": {
+    "PASS": 15,
+    "FAIL": 0,
+    "WARNING": 0
+  }
+}
