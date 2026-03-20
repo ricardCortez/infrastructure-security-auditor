@@ -1,0 +1,244 @@
+{
+  "risk_score": 1.0,
+  "risk_label": "MINIMAL",
+  "severity_distribution": {
+    "CRITICAL": 0,
+    "HIGH": 2,
+    "MEDIUM": 1,
+    "LOW": 12
+  },
+  "compliance": {
+    "ISO_27001": 0.9035,
+    "CIS_Benchmarks": 0.941,
+    "PCI_DSS": 0.9402
+  },
+  "recommendations": [
+    {
+      "check": "LSASS Protection",
+      "severity": "LOW",
+      "action": "Enable LSASS Protected Process Light",
+      "command": "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa' -Name RunAsPPL -Value 1",
+      "effort": "Low",
+      "timeline": "Within 24 hours"
+    },
+    {
+      "check": "Event Log Config",
+      "severity": "LOW",
+      "action": "Increase event log sizes and enable all critical logs",
+      "command": "GPO: Computer Configuration \u2192 Security Settings \u2192 Event Log \u2192 128MB+",
+      "effort": "Low",
+      "timeline": "Within 1 week"
+    },
+    {
+      "check": "Admin Accounts",
+      "severity": "LOW",
+      "action": "Disable built-in Administrator and remove unnecessary admins",
+      "command": "Disable-LocalUser -Name Administrator",
+      "effort": "Medium",
+      "timeline": "Within 48 hours"
+    },
+    {
+      "check": "Windows Update",
+      "severity": "LOW",
+      "action": "Apply all pending critical patches",
+      "command": "Start Windows Update and install all critical updates",
+      "effort": "Medium",
+      "timeline": "Within 48 hours"
+    },
+    {
+      "check": "File Sharing",
+      "severity": "LOW",
+      "action": "Remove Everyone/Authenticated Users from share ACLs",
+      "command": "Revoke-SmbShareAccess -Name <share> -AccountName Everyone -Force",
+      "effort": "Medium",
+      "timeline": "Within 1 week"
+    },
+    {
+      "check": "Firewall Status",
+      "severity": "LOW",
+      "action": "Enable Windows Firewall on all profiles",
+      "command": "Set-NetFirewallProfile -All -Enabled True",
+      "effort": "Low",
+      "timeline": "Immediate"
+    },
+    {
+      "check": "Password Policies",
+      "severity": "LOW",
+      "action": "Enforce password complexity, minimum length \u226512, max age \u226490 days",
+      "command": "Configure via Group Policy: Account Policies \u2192 Password Policy",
+      "effort": "Medium",
+      "timeline": "Within 1 week"
+    },
+    {
+      "check": "Installed Software",
+      "severity": "LOW",
+      "action": "Uninstall or upgrade EOL applications",
+      "command": "Use Add/Remove Programs or winget to remove obsolete software",
+      "effort": "High",
+      "timeline": "Within 1 month"
+    },
+    {
+      "check": "LLMNR/NetBIOS",
+      "severity": "LOW",
+      "action": "Disable LLMNR and NetBIOS via GPO and NIC settings",
+      "command": "GPO: Turn Off Multicast Name Resolution = Enabled",
+      "effort": "Medium",
+      "timeline": "Within 1 week"
+    },
+    {
+      "check": "RDP NLA",
+      "severity": "LOW",
+      "action": "Enable Network Level Authentication for RDP",
+      "command": "Set-ItemProperty -Path 'HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp' -Name UserAuthentication -Value 1",
+      "effort": "Low",
+      "timeline": "Within 24 hours"
+    },
+    {
+      "check": "Windows Defender",
+      "severity": "LOW",
+      "action": "Enable Windows Defender and update signatures",
+      "command": "Set-MpPreference -DisableRealtimeMonitoring $false; Update-MpSignature",
+      "effort": "Low",
+      "timeline": "Immediate"
+    },
+    {
+      "check": "SMBv1 Protocol",
+      "severity": "LOW",
+      "action": "Disable SMBv1 immediately",
+      "command": "Set-SmbServerConfiguration -EnableSMB1Protocol $false -Force",
+      "effort": "Low",
+      "timeline": "Immediate"
+    }
+  ],
+  "findings": [
+    {
+      "check": "Weak Ciphers",
+      "status": "PASS",
+      "severity": "HIGH",
+      "description": "No weak cipher suites (RC4, DES, 3DES, NULL, EXPORT) are enabled.",
+      "recommendation": "No action required.",
+      "raw_output": "RC4: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner.\nDES: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner.\n3DES: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner.\nNULL: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner.\nEXPORT: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "LSASS Protection",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "Event Log Config",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "Privilege Creep",
+      "status": "PASS",
+      "severity": "MEDIUM",
+      "description": "Privileged group memberships appear within expected limits.",
+      "recommendation": "Periodically review privileged group memberships.",
+      "raw_output": "Backup Operators: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner.\nRemote Desktop Users: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner.\nRemote Management Users: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner.\nPower Users: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "Admin Accounts",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "Windows Update",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "File Sharing",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "Firewall Status",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "Password Policies",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "Installed Software",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "LLMNR/NetBIOS",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "TLS Versions",
+      "status": "PASS",
+      "severity": "HIGH",
+      "description": "No deprecated TLS/SSL protocols detected. Only TLS 1.2+ is active.",
+      "recommendation": "No action required.",
+      "raw_output": "SSL 2.0: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner.\nSSL 3.0: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner.\nTLS 1.0: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner.\nTLS 1.1: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "RDP NLA",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "Windows Defender",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "SMBv1 Protocol",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    }
+  ],
+  "total_checks": 15,
+  "summary": {
+    "PASS": 3,
+    "FAIL": 0,
+    "WARNING": 12
+  },
+  "server": "192.168.1.100",
+  "timestamp": "2026-03-20T22:16:52.137485+00:00",
+  "scan_duration_seconds": 0.0
+}

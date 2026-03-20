@@ -1,0 +1,133 @@
+{
+  "server": "192.168.1.100",
+  "timestamp": "2026-03-20T22:16:52.137485+00:00",
+  "scan_duration_seconds": 0.0,
+  "findings": [
+    {
+      "check": "Weak Ciphers",
+      "status": "PASS",
+      "severity": "HIGH",
+      "description": "No weak cipher suites (RC4, DES, 3DES, NULL, EXPORT) are enabled.",
+      "recommendation": "No action required.",
+      "raw_output": "RC4: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner.\nDES: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner.\n3DES: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner.\nNULL: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner.\nEXPORT: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "LSASS Protection",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "Event Log Config",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "Privilege Creep",
+      "status": "PASS",
+      "severity": "MEDIUM",
+      "description": "Privileged group memberships appear within expected limits.",
+      "recommendation": "Periodically review privileged group memberships.",
+      "raw_output": "Backup Operators: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner.\nRemote Desktop Users: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner.\nRemote Management Users: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner.\nPower Users: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "Admin Accounts",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "Windows Update",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "File Sharing",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "Firewall Status",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "Password Policies",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "Installed Software",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "LLMNR/NetBIOS",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "TLS Versions",
+      "status": "PASS",
+      "severity": "HIGH",
+      "description": "No deprecated TLS/SSL protocols detected. Only TLS 1.2+ is active.",
+      "recommendation": "No action required.",
+      "raw_output": "SSL 2.0: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner.\nSSL 3.0: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner.\nTLS 1.0: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner.\nTLS 1.1: ERROR WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "RDP NLA",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "Windows Defender",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    },
+    {
+      "check": "SMBv1 Protocol",
+      "status": "WARNING",
+      "severity": "LOW",
+      "description": "Check could not be completed: WinRM session not initialised. Provide credentials when instantiating WindowsScanner.",
+      "recommendation": "Run auditor with elevated privileges (Administrator) to enable this check.",
+      "raw_output": "WinRM session not initialised. Provide credentials when instantiating WindowsScanner."
+    }
+  ],
+  "total_checks": 15,
+  "summary": {
+    "PASS": 3,
+    "FAIL": 0,
+    "WARNING": 12
+  }
+}
