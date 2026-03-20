@@ -7,6 +7,7 @@ Complete class and method reference for Infrastructure Security Auditor.
 ## Table of Contents
 
 - [WindowsScanner](#windowsscanner)
+- [LinuxScanner](#linuxscanner)
 - [Analyzer](#analyzer)
 - [RiskScorer](#riskscorer)
 - [HTMLReporter](#htmlreporter)
@@ -287,6 +288,334 @@ def run_scan(self) -> dict[str, Any]
 ```python
 scanner = WindowsScanner("localhost")
 results = scanner.run_scan()
+print(f"Risk findings: {results['summary']['FAIL']} failures")
+```
+
+---
+
+---
+
+## LinuxScanner
+
+`src.scanner.linux_scanner.LinuxScanner`
+
+Performs 18 security configuration checks against a Linux host via shell commands (local) or SSH (remote).
+
+### Constructor
+
+```python
+LinuxScanner(target: str, credentials: dict[str, Any] | None = None)
+```
+
+**Args:**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `target` | `str` | IP address or hostname. Use `"localhost"` or `"127.0.0.1"` for local scanning. |
+| `credentials` | `dict \| None` | SSH credentials for remote scanning. Keys: `username` (str), `password` (str, optional), `key_filename` (str path, optional), `port` (int, default 22), `timeout` (int, default 30). |
+
+**Examples:**
+
+```python
+from src.scanner.linux_scanner import LinuxScanner
+
+# Local scan
+scanner = LinuxScanner(target="localhost")
+
+# Remote scan with SSH key
+scanner = LinuxScanner(
+    target="10.0.1.50",
+    credentials={
+        "username": "auditor",
+        "key_filename": "/home/me/.ssh/id_rsa",
+    },
+)
+
+# Remote scan with password
+scanner = LinuxScanner(
+    target="10.0.1.50",
+    credentials={
+        "username": "auditor",
+        "password": "SecurePass",
+        "port": 22,
+    },
+)
+```
+
+---
+
+### Security Check Methods
+
+All 18 check methods share the same signature and return format:
+
+```python
+def check_<name>(self) -> dict[str, Any]
+```
+
+**Returns:** A `FindingDict` with keys:
+
+```python
+{
+    "check":          str,   # Check name
+    "status":         str,   # "PASS" | "FAIL" | "WARNING"
+    "severity":       str,   # "CRITICAL" | "HIGH" | "MEDIUM" | "LOW"
+    "description":    str,   # Human-readable finding description
+    "recommendation": str,   # Actionable remediation step
+    "raw_output":     str,   # Raw command stdout
+}
+```
+
+---
+
+#### `check_ssh_key_auth()`
+
+Verifies `PubkeyAuthentication yes` in `/etc/ssh/sshd_config`.
+
+| | |
+|---|---|
+| **Severity** | HIGH |
+| **Command** | `cat /etc/ssh/sshd_config` |
+| **FAIL when** | `PubkeyAuthentication` is explicitly set to `no` |
+
+---
+
+#### `check_ssh_root_login()`
+
+Verifies `PermitRootLogin no` in `/etc/ssh/sshd_config`.
+
+| | |
+|---|---|
+| **Severity** | **CRITICAL** |
+| **Command** | `cat /etc/ssh/sshd_config` |
+| **FAIL when** | `PermitRootLogin` is not `no` (including `prohibit-password`, `forced-commands-only`, absent) |
+
+---
+
+#### `check_ssh_password_auth()`
+
+Verifies `PasswordAuthentication no` in `/etc/ssh/sshd_config`.
+
+| | |
+|---|---|
+| **Severity** | HIGH |
+| **Command** | `cat /etc/ssh/sshd_config` |
+| **FAIL when** | `PasswordAuthentication` is not `no` |
+
+---
+
+#### `check_firewall_enabled()`
+
+Checks for an active UFW firewall or iptables rules.
+
+| | |
+|---|---|
+| **Severity** | HIGH |
+| **Commands** | `ufw status` → `iptables -L -n --line-numbers` |
+| **FAIL when** | UFW is inactive and iptables has ≤10 rule lines |
+
+---
+
+#### `check_sudo_configuration()`
+
+Audits `/etc/sudoers` and `/etc/sudoers.d/` for `NOPASSWD` or unrestricted `ALL=(ALL) ALL` rules.
+
+| | |
+|---|---|
+| **Severity** | HIGH |
+| **Commands** | `cat /etc/sudoers`, `cat /etc/sudoers.d/*` |
+| **FAIL when** | Any `NOPASSWD` or unrestricted ALL rule found |
+
+---
+
+#### `check_world_writable_files()`
+
+Finds files with world-write permission (`-perm -002`) outside `/proc`, `/sys`, `/dev`, `/tmp`.
+
+| | |
+|---|---|
+| **Severity** | HIGH |
+| **Command** | `find / -xdev -perm -002 -type f …` |
+| **FAIL when** | Any such files are found |
+
+---
+
+#### `check_suid_binaries()`
+
+Finds SUID binaries (`-perm -4000`) and compares against a whitelist of expected binaries.
+
+| | |
+|---|---|
+| **Severity** | HIGH |
+| **Command** | `find / -xdev -perm -4000 -type f` |
+| **FAIL when** | Binaries outside the expected set are found |
+
+---
+
+#### `check_file_permissions()`
+
+Checks permissions of `/etc/passwd`, `/etc/shadow`, `/etc/gshadow`, `/etc/sudoers`.
+
+| | |
+|---|---|
+| **Severity** | HIGH |
+| **Command** | `stat -c '%a %n' <path>` per file |
+| **FAIL when** | World-write bit set, or `/etc/shadow` world-readable |
+
+---
+
+#### `check_kernel_hardening()`
+
+Verifies key sysctl parameters against CIS baselines: `randomize_va_space`, `dmesg_restrict`, `ip_forward`, `accept_redirects`, `kptr_restrict`.
+
+| | |
+|---|---|
+| **Severity** | MEDIUM |
+| **Command** | `sysctl -n <param>` per parameter |
+| **FAIL when** | Any parameter deviates from the expected value |
+
+---
+
+#### `check_selinux_apparmor()`
+
+Checks whether SELinux is Enforcing (`getenforce`) or AppArmor is enabled (`aa-status --enabled`).
+
+| | |
+|---|---|
+| **Severity** | MEDIUM |
+| **Commands** | `getenforce`, `aa-status --enabled` |
+| **FAIL when** | Neither SELinux (Enforcing) nor AppArmor is active |
+
+---
+
+#### `check_package_updates()`
+
+Queries pending security updates via `apt list --upgradable` (Debian/Ubuntu) or `yum check-update --security` (RHEL/CentOS).
+
+| | |
+|---|---|
+| **Severity** | MEDIUM |
+| **Commands** | `apt list --upgradable`, `yum check-update --security` |
+| **FAIL when** | Pending updates are found |
+
+---
+
+#### `check_ssl_certificates()`
+
+Finds `.crt` / `.pem` files in `/etc/ssl/certs` and `/etc/pki/tls/certs`, checks expiry with `openssl x509 -checkend`.
+
+| | |
+|---|---|
+| **Severity** | HIGH |
+| **Commands** | `find … -name '*.crt'`, `openssl x509 -checkend 2592000` |
+| **FAIL when** | Any certificate is already expired |
+| **WARNING when** | Any certificate expires within 30 days |
+
+---
+
+#### `check_open_ports()`
+
+Lists listening TCP ports via `ss -tlnp` and flags ports outside the expected set (22, 80, 443, 8080, 8443, 25, 587, 993, 995, 53).
+
+| | |
+|---|---|
+| **Severity** | MEDIUM |
+| **Commands** | `ss -tlnp`, fallback `netstat -tlnp` |
+| **WARNING when** | Ports outside the expected set are found |
+
+---
+
+#### `check_user_accounts()`
+
+Audits `/etc/passwd` for UID-0 accounts other than root, system accounts with interactive shells, and empty passwords in `/etc/shadow`.
+
+| | |
+|---|---|
+| **Severity** | HIGH |
+| **Commands** | `cat /etc/passwd`, `cat /etc/shadow` |
+| **FAIL when** | Hidden UID-0 accounts, system accounts with bash, or empty passwords found |
+
+---
+
+#### `check_failed_logins()`
+
+Checks for brute-force activity via `lastb` or `journalctl`.
+
+| | |
+|---|---|
+| **Severity** | MEDIUM |
+| **Commands** | `lastb -n 100`, `journalctl -u sshd \| grep -c 'Failed password'` |
+| **FAIL when** | ≥50 recent failed login attempts detected |
+
+---
+
+#### `check_cron_jobs()`
+
+Audits root crontab, `/etc/crontab`, and `/etc/cron.*` for world-writable scripts.
+
+| | |
+|---|---|
+| **Severity** | MEDIUM |
+| **Commands** | `crontab -l -u root`, `cat /etc/crontab`, `stat -c '%a %n' <script>` |
+| **FAIL when** | Any cron script has world-write permission |
+
+---
+
+#### `check_weak_ciphers()`
+
+Inspects `/etc/ssh/sshd_config` for deprecated cipher suites (3DES, arcfour, Blowfish) and weak MACs (hmac-md5, hmac-sha1).
+
+| | |
+|---|---|
+| **Severity** | HIGH |
+| **Command** | `cat /etc/ssh/sshd_config` |
+| **FAIL when** | Weak ciphers or MACs are explicitly configured |
+
+---
+
+#### `check_log_rotation()`
+
+Verifies `/etc/logrotate.conf` has a `rotate` directive, `/etc/logrotate.d/` is populated, and logrotate is scheduled.
+
+| | |
+|---|---|
+| **Severity** | LOW |
+| **Commands** | `cat /etc/logrotate.conf`, `ls /etc/logrotate.d/`, `systemctl is-active logrotate.timer` |
+| **FAIL when** | logrotate is missing, unconfigured, or not scheduled |
+
+---
+
+### `run_scan()`
+
+Executes all 18 security checks concurrently using `ThreadPoolExecutor`.
+
+```python
+def run_scan(self) -> dict[str, Any]
+```
+
+**Returns:**
+
+```python
+{
+    "server":                str,          # Target hostname/IP
+    "os":                    "linux",      # Platform identifier
+    "timestamp":             str,          # ISO 8601 UTC
+    "scan_duration_seconds": float,        # Wall-clock time
+    "findings":              list[dict],   # 18 FindingDict objects
+    "total_checks":          int,          # Always 18
+    "summary": {
+        "PASS":    int,
+        "FAIL":    int,
+        "WARNING": int,
+    }
+}
+```
+
+**Example:**
+
+```python
+scanner = LinuxScanner("localhost")
+results = scanner.run_scan()
+print(f"OS: {results['os']}")
 print(f"Risk findings: {results['summary']['FAIL']} failures")
 ```
 
@@ -610,8 +939,9 @@ Options:
   -t, --target TEXT         Target IP or hostname (required)
   --os [windows|linux]      Target OS (default: windows)
   -o, --output TEXT         Output JSON path
-  --username TEXT           WinRM username (or $WINRM_USERNAME)
-  --password TEXT           WinRM password (or $WINRM_PASSWORD)
+  --username TEXT           WinRM/SSH username (or $WINRM_USERNAME)
+  --password TEXT           WinRM/SSH password (or $WINRM_PASSWORD)
+  --ssh-key TEXT            SSH private key path for Linux scans (or $SSH_KEY_PATH)
   --analyze / --no-analyze  Run analysis after scan (default: off)
 ```
 

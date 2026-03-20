@@ -29,25 +29,39 @@ Options:
   -t, --target TEXT            Target IP address or hostname (required)
   --os [windows|linux]         Target OS (default: windows)
   -o, --output TEXT            Output path for scan results JSON
-  --username TEXT              WinRM username for remote scans
-  --password TEXT              WinRM password for remote scans
+  --username TEXT              WinRM/SSH username for remote scans
+  --password TEXT              WinRM/SSH password for remote scans
+  --ssh-key TEXT               Path to SSH private key (Linux remote scans)
   --analyze / --no-analyze     Run analysis immediately after scan
 ```
 
-**Examples:**
+**Windows examples:**
 
 ```bash
 # Scan localhost
-python auditor.py scan --target localhost
+python auditor.py scan --target localhost --os windows
 
-# Scan with custom output path
-python auditor.py scan --target localhost --output /tmp/server01_scan.json
-
-# Scan remote host
-python auditor.py scan --target 10.0.1.50 --username admin --password P@ss123
+# Scan remote Windows host via WinRM
+python auditor.py scan --target 10.0.1.50 --os windows --username admin --password P@ss123
 
 # Scan and analyze in one step
-python auditor.py scan --target localhost --analyze
+python auditor.py scan --target localhost --os windows --analyze
+```
+
+**Linux examples:**
+
+```bash
+# Scan localhost (Linux)
+python auditor.py scan --target localhost --os linux
+
+# Scan remote Linux host via SSH key
+python auditor.py scan --target 10.0.1.50 --os linux --username auditor --ssh-key ~/.ssh/id_rsa
+
+# Scan remote Linux host via SSH password
+python auditor.py scan --target 10.0.1.50 --os linux --username auditor --password P@ss123
+
+# Save to a custom path and analyze immediately
+python auditor.py scan --target 10.0.1.50 --os linux --output /tmp/server01_scan.json --analyze
 ```
 
 **Output:** Saves `<target>_scan.json` (or `--output` path) and prints a summary table:
@@ -137,13 +151,87 @@ python auditor.py version
 
 ---
 
+## Windows vs Linux Audits
+
+### Side-by-side comparison
+
+| Aspect | Windows | Linux |
+|--------|---------|-------|
+| Checks | 15 | 18 |
+| Transport (local) | subprocess / PowerShell | subprocess / shell |
+| Transport (remote) | WinRM (NTLM/Kerberos) | SSH (key or password) |
+| Credentials env vars | `WINRM_USERNAME` / `WINRM_PASSWORD` | `WINRM_USERNAME` / `WINRM_PASSWORD` / `SSH_KEY_PATH` |
+| Requires target agent? | No | No |
+| Privileges needed | Administrator | sudo / root |
+| Compliance standards | ISO 27001, CIS Windows, PCI-DSS | ISO 27001, CIS Linux, PCI-DSS |
+
+### Setting up remote SSH scanning (Linux)
+
+On the **target Linux host**, create a dedicated auditor account:
+
+```bash
+# Create non-root auditor user
+sudo useradd -m -s /bin/bash auditor
+sudo usermod -aG sudo auditor          # only if full-coverage checks needed
+
+# Add your public key
+sudo mkdir -p /home/auditor/.ssh
+echo "ssh-ed25519 AAAA..." | sudo tee /home/auditor/.ssh/authorized_keys
+sudo chmod 700 /home/auditor/.ssh
+sudo chmod 600 /home/auditor/.ssh/authorized_keys
+sudo chown -R auditor:auditor /home/auditor/.ssh
+```
+
+On your **auditor machine**, scan:
+
+```bash
+python auditor.py scan \
+    --target 10.0.1.50 \
+    --os linux \
+    --username auditor \
+    --ssh-key ~/.ssh/id_ed25519_auditor
+```
+
+Or use the `SSH_KEY_PATH` environment variable:
+
+```bash
+export SSH_KEY_PATH=~/.ssh/id_ed25519_auditor
+export WINRM_USERNAME=auditor
+python auditor.py scan --target 10.0.1.50 --os linux
+```
+
+### Setting up remote WinRM scanning (Windows)
+
+On the **target Windows host** (run as Administrator):
+
+```powershell
+Enable-PSRemoting -Force
+winrm quickconfig
+# Optional: allow specific IP ranges only
+winrm set winrm/config/client/auth '@{Basic="true"}'
+```
+
+On your **auditor machine**, scan:
+
+```bash
+python auditor.py scan \
+    --target 10.0.1.50 \
+    --os windows \
+    --username "CORP\svc-auditor" \
+    --password "YourPassword"
+```
+
+---
+
 ## Common Workflows
 
-### Workflow 1 — Single server audit (end-to-end)
+### Workflow 1 — Single Windows server audit (end-to-end)
 
 ```bash
 # Step 1: Scan
-python auditor.py scan --target 192.168.1.100 \
+python auditor.py scan \
+  --target 192.168.1.100 \
+  --os windows \
   --username "CORP\svc-auditor" \
   --password "SecurePass"
 
@@ -155,7 +243,30 @@ python auditor.py report \
   --output reports/server01_$(date +%Y%m%d).html
 
 # Step 4: Open report
-start reports/server01_20260320.html
+start reports/server01_20260320.html   # Windows
+```
+
+---
+
+### Workflow 1b — Single Linux server audit (end-to-end)
+
+```bash
+# Step 1: Scan
+python auditor.py scan \
+  --target 10.0.1.50 \
+  --os linux \
+  --username auditor \
+  --ssh-key ~/.ssh/id_rsa
+
+# Step 2: Review scan summary in terminal
+
+# Step 3: Generate HTML report
+python auditor.py report \
+  --input 10_0_1_50_scan.json \
+  --output reports/linux_server01_$(date +%Y%m%d).html
+
+# Step 4: Open report
+xdg-open reports/linux_server01_20260320.html   # Linux
 ```
 
 ---
@@ -164,7 +275,7 @@ start reports/server01_20260320.html
 
 Use a shell loop or Python script to scan multiple targets:
 
-**PowerShell batch script:**
+**PowerShell batch script (Windows targets):**
 
 ```powershell
 $servers = @("10.0.1.10", "10.0.1.11", "10.0.1.12")
@@ -172,7 +283,7 @@ $date = Get-Date -Format "yyyyMMdd"
 
 foreach ($server in $servers) {
     Write-Host "Scanning $server..."
-    python auditor.py scan --target $server `
+    python auditor.py scan --target $server --os windows `
         --username "CORP\svc-auditor" `
         --password "SecurePass" `
         --output "scans\${server}_${date}.json"
@@ -186,33 +297,65 @@ foreach ($server in $servers) {
 Write-Host "All scans complete."
 ```
 
-**Python batch script:**
+**Bash script (Linux targets):**
+
+```bash
+#!/bin/bash
+TARGETS=("10.0.1.20" "10.0.1.21" "10.0.1.22")
+DATE=$(date +%Y%m%d)
+
+for TARGET in "${TARGETS[@]}"; do
+    echo "Scanning $TARGET..."
+    python auditor.py scan \
+        --target "$TARGET" --os linux \
+        --username auditor --ssh-key ~/.ssh/id_rsa \
+        --output "scans/${TARGET}_${DATE}.json"
+
+    python auditor.py report \
+        --input "scans/${TARGET}_${DATE}.json" \
+        --output "reports/${TARGET}_${DATE}.html" \
+        --no-ai
+done
+
+echo "All scans complete."
+```
+
+**Python batch script (mixed environments):**
 
 ```python
 import subprocess
-from pathlib import Path
 from datetime import date
 
-targets = ["10.0.1.10", "10.0.1.11", "10.0.1.12"]
+windows_targets = ["10.0.1.10", "10.0.1.11"]
+linux_targets   = ["10.0.1.20", "10.0.1.21"]
 today = date.today().strftime("%Y%m%d")
 
-for target in targets:
-    scan_path = f"scans/{target}_{today}.json"
+for target in windows_targets:
+    scan_path   = f"scans/{target}_{today}.json"
     report_path = f"reports/{target}_{today}.html"
-
     subprocess.run([
         "python", "auditor.py", "scan",
-        "--target", target,
-        "--username", "CORP\\svc-auditor",
-        "--password", "SecurePass",
+        "--target", target, "--os", "windows",
+        "--username", "CORP\\svc-auditor", "--password", "SecurePass",
         "--output", scan_path,
     ], check=True)
-
     subprocess.run([
         "python", "auditor.py", "report",
-        "--input", scan_path,
-        "--output", report_path,
-        "--no-ai",
+        "--input", scan_path, "--output", report_path, "--no-ai",
+    ], check=True)
+
+for target in linux_targets:
+    scan_path   = f"scans/{target}_{today}.json"
+    report_path = f"reports/{target}_{today}.html"
+    subprocess.run([
+        "python", "auditor.py", "scan",
+        "--target", target, "--os", "linux",
+        "--username", "auditor", "--ssh-key", "~/.ssh/id_rsa",
+        "--output", scan_path,
+    ], check=True)
+    subprocess.run([
+        "python", "auditor.py", "report",
+        "--input", scan_path, "--output", report_path, "--no-ai",
     ], check=True)
 
 print("Batch scan complete.")
@@ -243,8 +386,9 @@ The HTML report includes an ISO 27001 compliance section with percentage scores 
 
 You can import and call the modules directly in your own scripts:
 
+**Windows scanner:**
+
 ```python
-import json
 from src.scanner.windows_scanner import WindowsScanner
 from src.analyzer.analyzer import Analyzer
 from src.reporter.html_generator import HTMLReporter
@@ -256,17 +400,52 @@ scan_results = scanner.run_scan()
 # Analyze
 analyzer = Analyzer(scan_results["findings"])
 analysis = analyzer.analyze()
-
-# Add scan metadata
 analysis["server"] = scan_results["server"]
 analysis["timestamp"] = scan_results["timestamp"]
 analysis["scan_duration_seconds"] = scan_results["scan_duration_seconds"]
 
 # Report
 reporter = HTMLReporter(analysis)
-out = reporter.save("my_report.html")
+out = reporter.save("windows_report.html")
 print(f"Report: {out}")
 print(f"Risk: {analysis['risk_score']}/10 ({analysis['risk_label']})")
+```
+
+**Linux scanner (local):**
+
+```python
+from src.scanner.linux_scanner import LinuxScanner
+from src.analyzer.analyzer import Analyzer
+from src.reporter.html_generator import HTMLReporter
+
+scanner = LinuxScanner("localhost")
+scan_results = scanner.run_scan()
+
+analyzer = Analyzer(scan_results["findings"])
+analysis = analyzer.analyze()
+analysis["server"] = scan_results["server"]
+analysis["timestamp"] = scan_results["timestamp"]
+analysis["scan_duration_seconds"] = scan_results["scan_duration_seconds"]
+
+reporter = HTMLReporter(analysis)
+out = reporter.save("linux_report.html")
+print(f"OS: {scan_results['os']}, Risk: {analysis['risk_score']}/10")
+```
+
+**Linux scanner (remote SSH):**
+
+```python
+from src.scanner.linux_scanner import LinuxScanner
+
+scanner = LinuxScanner(
+    target="10.0.1.50",
+    credentials={
+        "username": "auditor",
+        "key_filename": "/home/me/.ssh/id_rsa",
+    },
+)
+scan_results = scanner.run_scan()
+print(f"Findings: {scan_results['summary']}")
 ```
 
 ---
