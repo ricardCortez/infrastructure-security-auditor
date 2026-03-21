@@ -1,9 +1,10 @@
 """SQLite-backed local storage for PSI CLI — no server required."""
 import os
 import sqlite3
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+_ALLOWED_TABLES = {"assets", "findings", "scan_jobs", "reports"}
 
 # Tests can override via monkeypatch.setattr(local_db, "DB_PATH", ...)
 DB_PATH: Path = (
@@ -55,6 +56,11 @@ CREATE TABLE IF NOT EXISTS reports (
 """
 
 
+def _validate_table(table: str) -> None:
+    if table not in _ALLOWED_TABLES:
+        raise ValueError(f"Unknown table: {table!r}")
+
+
 def _conn() -> sqlite3.Connection:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DB_PATH))
@@ -71,6 +77,7 @@ def init_db() -> None:
 
 def get_all(table: str, filters: Optional[Dict[str, Any]] = None) -> List[Dict]:
     """Return all rows from *table*, optionally filtered by exact-match *filters*."""
+    _validate_table(table)
     init_db()
     with _conn() as c:
         if filters:
@@ -84,6 +91,7 @@ def get_all(table: str, filters: Optional[Dict[str, Any]] = None) -> List[Dict]:
 
 def get_by_id(table: str, row_id: int) -> Optional[Dict]:
     """Return a single row by primary key, or None."""
+    _validate_table(table)
     init_db()
     with _conn() as c:
         row = c.execute(f"SELECT * FROM {table} WHERE id = ?", (row_id,)).fetchone()
@@ -92,6 +100,7 @@ def get_by_id(table: str, row_id: int) -> Optional[Dict]:
 
 def insert(table: str, data: Dict[str, Any]) -> Dict:
     """Insert *data* into *table* and return the full inserted row."""
+    _validate_table(table)
     init_db()
     cols = ", ".join(data.keys())
     placeholders = ", ".join("?" * len(data))
@@ -105,6 +114,7 @@ def insert(table: str, data: Dict[str, Any]) -> Dict:
 
 def update(table: str, row_id: int, data: Dict[str, Any]) -> Optional[Dict]:
     """Update row by *row_id* and return the updated row."""
+    _validate_table(table)
     init_db()
     sets = ", ".join(f"{k} = ?" for k in data)
     with _conn() as c:
@@ -116,6 +126,7 @@ def update(table: str, row_id: int, data: Dict[str, Any]) -> Optional[Dict]:
 
 def delete_by_id(table: str, row_id: int) -> bool:
     """Delete row by *row_id*. Returns True if a row was deleted."""
+    _validate_table(table)
     init_db()
     with _conn() as c:
         cur = c.execute(f"DELETE FROM {table} WHERE id = ?", (row_id,))

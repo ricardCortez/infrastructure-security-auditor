@@ -1,8 +1,12 @@
 """Unit tests for CLI Click commands using CliRunner (SQLite-backed, no server needed)."""
+import json
+from unittest.mock import patch
+
 import pytest
 from click.testing import CliRunner
-from cli.main import cli
+
 import cli.local_db as db
+from cli.main import cli
 
 
 @pytest.fixture
@@ -238,10 +242,12 @@ class TestAuditorCommands:
         })
         result = runner.invoke(cli, ["auditor", "results", "--format", "json"])
         assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert isinstance(data, list)
+        assert any(f["title"] == "SSH weak key" for f in data)
 
     def test_auditor_scan_creates_asset_if_missing(self, runner) -> None:
         """auditor scan auto-creates asset from target IP."""
-        from unittest.mock import patch
         with patch("cli.commands.scans._run_auditor_scan"):
             result = runner.invoke(cli, [
                 "auditor", "scan",
@@ -254,12 +260,12 @@ class TestAuditorCommands:
 
     def test_auditor_scan_reuses_existing_asset(self, runner, seed_asset) -> None:
         """If asset with same IP already exists, no duplicate is created."""
-        from unittest.mock import patch
         with patch("cli.commands.scans._run_auditor_scan"):
-            runner.invoke(cli, [
+            result = runner.invoke(cli, [
                 "auditor", "scan",
                 "--target", seed_asset["ip_address"],
             ])
+        assert result.exit_code == 0
         assets = db.get_all("assets", {"ip_address": seed_asset["ip_address"]})
         assert len(assets) == 1
 
