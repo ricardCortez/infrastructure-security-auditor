@@ -1,10 +1,10 @@
 # Infrastructure Security Auditor
 
-> Automated Windows & Linux infrastructure security scanning with AI-powered analysis and professional HTML reporting.
+> Automated Windows & Linux infrastructure security scanning with AI-powered analysis, network-wide batch auditing, and professional HTML reporting.
 
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
-![Tests](https://img.shields.io/badge/tests-362%20passing-brightgreen)
-![Coverage](https://img.shields.io/badge/coverage-82%25-yellowgreen)
+![Tests](https://img.shields.io/badge/tests-484%20passing-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-83%25-yellowgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)
 
@@ -12,10 +12,10 @@
 
 ## What It Does
 
-**Infrastructure Security Auditor** scans your servers in minutes, not hours. Point it at any Windows or Linux host and it will:
+**Infrastructure Security Auditor** scans your servers in minutes, not hours. Point it at a single host or an entire subnet and it will:
 
 1. Execute **33 security checks** (15 Windows + 18 Linux) concurrently
-2. Score the overall risk **0–10** using a CVSS-inspired algorithm
+2. Score overall risk **0–10** using a CVSS-inspired algorithm
 3. Map findings to **ISO 27001, CIS Benchmarks, and PCI-DSS** compliance percentages
 4. Generate a **standalone HTML report** ready to share with clients or management
 
@@ -25,11 +25,9 @@ No agent installation on the target. No cloud dependency. Runs fully local or ai
 
 ## Quick Start
 
-Get your first audit in 5 minutes:
-
 ```bash
 # 1. Clone and install
-git clone https://github.com/your-org/infrastructure-security-auditor.git
+git clone https://github.com/ricardCortez/infrastructure-security-auditor.git
 cd infrastructure-security-auditor
 python -m venv .venv
 .venv\Scripts\activate          # Windows
@@ -40,85 +38,51 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env → CLAUDE_API_KEY=sk-ant-...
 
-# 3. Scan
+# 3. Scan a single server
 python auditor.py scan --target localhost --os windows
 python auditor.py scan --target localhost --os linux
 
 # 4. Generate HTML report
 python auditor.py report --input localhost_scan.json --output report.html
 
-# 5. Open the report
-start report.html          # Windows
-xdg-open report.html       # Linux
+# 5. Or launch the interactive TUI (no flags needed)
+python auditor.py interactive
 ```
 
-> Full setup instructions (virtual environment, remote access, troubleshooting): [INSTALLATION.md](INSTALLATION.md)
+> Full setup instructions: [INSTALLATION.md](INSTALLATION.md)
 
 ---
 
 ## Usage Examples
 
-### Windows: local scan
+### Single Server Scans
 
 ```bash
+# Windows — local
 python auditor.py scan --target localhost --os windows
-```
 
-### Windows: remote server via WinRM
+# Windows — remote via WinRM
+python auditor.py scan --target 192.168.1.100 --os windows \
+    --username DOMAIN\Administrator --password "YourPassword"
 
-```bash
-python auditor.py scan \
-    --target 192.168.1.100 \
-    --os windows \
-    --username DOMAIN\Administrator \
-    --password "YourPassword"
-```
-
-### Linux: local scan
-
-```bash
+# Linux — local
 python auditor.py scan --target localhost --os linux
-```
 
-### Linux: remote server via SSH key
+# Linux — remote via SSH key
+python auditor.py scan --target 10.0.1.50 --os linux \
+    --username auditor --ssh-key ~/.ssh/id_rsa
 
-```bash
-python auditor.py scan \
-    --target 10.0.1.50 \
-    --os linux \
-    --username auditor \
-    --ssh-key ~/.ssh/id_rsa
-```
-
-### Linux: remote server via SSH password
-
-```bash
-python auditor.py scan \
-    --target 10.0.1.50 \
-    --os linux \
-    --username auditor \
-    --password "YourPassword"
-```
-
-### Scan and analyze in one step
-
-```bash
+# Scan and analyze in one step
 python auditor.py scan --target localhost --os linux --analyze
-```
 
-### Generate a report (with AI recommendations)
-
-```bash
+# Generate HTML report (AI recommendations)
 python auditor.py report --input localhost_scan.json --output report.html
-```
 
-### Generate a report (no API key required)
-
-```bash
+# Generate HTML report (no API key needed)
 python auditor.py report --input localhost_scan.json --output report.html --no-ai
 ```
 
-### Interactive TUI (no flags needed)
+### Interactive TUI
 
 ```bash
 python auditor.py interactive
@@ -128,12 +92,11 @@ Launches a menu-driven interface — select options by number, no command memori
 
 ---
 
-## Network-Wide Auditing (Phase 5)
+## Network-Wide Auditing
 
-Scan entire subnets automatically. Discover hosts, detect OS, scan all servers in parallel,
-and generate a consolidated network report.
+Scan entire subnets automatically. Discover all live hosts, detect OS, scan in parallel, and get a consolidated network report.
 
-### Step 1 — Discover hosts in a network
+### Step 1 — Discover hosts
 
 ```bash
 # CIDR notation
@@ -143,15 +106,15 @@ python auditor.py discover --network 192.168.0.0/24
 python auditor.py discover --network 10.0.0.1-50 --timeout 2 --output hosts.json
 ```
 
-Output: JSON with IP, hostname, OS hint (windows/linux/unknown), open ports, RTT.
+Output: JSON with IP, hostname, OS hint (windows/linux/unknown), open ports, response time.
 
-### Step 2 — Scan discovered hosts
+### Step 2 — Scan all discovered hosts
 
 ```bash
 # Auto-discover then scan
 python auditor.py scan-network --network 192.168.0.0/24
 
-# Scan from a saved discovery file
+# Scan from a saved discovery file (faster)
 python auditor.py scan-network --file hosts.json --max-workers 20
 ```
 
@@ -169,37 +132,39 @@ python auditor.py report-network --input network_scan_192_168_0_0_24.json --summ
 
 Output: `reports/network_*/network_consolidated_report.html` + `network_summary.html`
 
-### Full pipeline (one liner)
+### One-liner full pipeline
 
 ```bash
 python auditor.py scan-network --network 192.168.0.0/24 --output net.json && \
-python auditor.py report-network --input net.json --output reports/audit/
+python auditor.py report-network --input net.json
 ```
 
-> Full command reference and workflow examples: [docs/USAGE.md](docs/USAGE.md)
+> Full command reference: [docs/USAGE.md](docs/USAGE.md)
 
 ---
 
 ## Features
 
-- **33 security checks** — 15 Windows (PowerShell/WinRM) + 18 Linux (shell/SSH)
-- **Network-wide auditing** — discover + scan entire subnets (50–150+ servers) automatically
-- **Interactive TUI** — menu-driven terminal interface, no flags required
-- **AI-powered analysis** via Claude (Anthropic) — falls back gracefully to static recommendations
-- **Professional HTML reports** — standalone files, no external CDN, suitable for air-gap environments
-- **Consolidated network reports** — per-server details, compliance heatmap, unified roadmap
-- **Risk scoring (0–10)** using a CVSS-inspired weighted algorithm
-- **Compliance mapping** against ISO 27001, CIS Benchmarks, and PCI-DSS
-- **Local and remote scanning** — localhost, WinRM (Windows), SSH key or password (Linux)
-- **Parallel execution** — ThreadPoolExecutor runs all checks concurrently
-- **Rich CLI output** — colour-coded tables and progress spinners
-- **Extensible architecture** — add new checks without touching existing code
+| Feature | Detail |
+|---------|--------|
+| **33 security checks** | 15 Windows (PowerShell/WinRM) + 18 Linux (shell/SSH) |
+| **Network-wide auditing** | Discover + scan entire subnets (50–150+ servers) automatically |
+| **Interactive TUI** | Menu-driven terminal interface — no flags required |
+| **AI-powered analysis** | Claude (Anthropic) recommendations; falls back to static rules if no key |
+| **Professional HTML reports** | Standalone files, no CDN, air-gap safe |
+| **Consolidated network reports** | Per-server details, compliance heatmap, unified remediation roadmap |
+| **Risk scoring (0–10)** | CVSS-inspired weighted algorithm |
+| **Compliance mapping** | ISO 27001, CIS Benchmarks, PCI-DSS percentages |
+| **Local + remote scanning** | localhost, WinRM (Windows), SSH key or password (Linux) |
+| **Parallel execution** | ThreadPoolExecutor for all checks and all hosts concurrently |
+| **Rich CLI output** | Colour-coded tables, progress spinners, severity badges |
+| **Extensible** | Add new checks without touching existing code |
 
 ---
 
 ## Report Contents
 
-Every generated HTML report includes:
+### Single-Server Report (7 sections)
 
 | Section | Audience |
 |---------|----------|
@@ -211,6 +176,18 @@ Every generated HTML report includes:
 | Remediation Roadmap (prioritised) | Project managers |
 | Technical Appendix (raw data) | Forensics, penetration testers |
 
+### Network Report (additional sections)
+
+| Section | Detail |
+|---------|--------|
+| Network Overview | CIDR scope, scan metadata, total hosts |
+| Risk Dashboard | Network-average risk score (0–10) |
+| Server Matrix | IP, hostname, OS, risk score, status for every host |
+| Compliance Heatmap | ISO / CIS / PCI bars per server |
+| Top Critical Servers | Ranked by risk score |
+| Common Findings | Issues appearing on 3+ servers (systemic risks) |
+| Per-Server Details | Collapsible finding sections for each host |
+
 ---
 
 ## Security Checks
@@ -220,7 +197,7 @@ Every generated HTML report includes:
 | Check | Severity | CVEs / Standards |
 |-------|----------|-----------------|
 | Firewall Status | HIGH | ISO A.13.1.1, CIS 9.x |
-| SMBv1 Protocol | **CRITICAL** | MS17-010 (EternalBlue/WannaCry) |
+| SMBv1 Protocol | **CRITICAL** | MS17-010 (EternalBlue / WannaCry) |
 | LLMNR / NetBIOS | HIGH | Responder attack surface |
 | Windows Defender | HIGH | ISO A.12.2.1, PCI DSS 5.x |
 | TLS Versions | HIGH | POODLE, BEAST, DROWN (RFC 8996) |
@@ -240,7 +217,7 @@ Every generated HTML report includes:
 | Check | Severity | What It Detects |
 |-------|----------|----------------|
 | SSH Key Authentication | HIGH | PubkeyAuthentication disabled |
-| SSH Root Login | **CRITICAL** | PermitRootLogin not set to `no` |
+| SSH Root Login | **CRITICAL** | PermitRootLogin not `no` |
 | SSH Password Auth | HIGH | PasswordAuthentication enabled |
 | Firewall Enabled | HIGH | UFW inactive, no iptables rules |
 | Sudo Configuration | HIGH | NOPASSWD rules, unrestricted ALL |
@@ -257,6 +234,74 @@ Every generated HTML report includes:
 | Cron Jobs | MEDIUM | World-writable scripts in crontabs |
 | Weak SSH Ciphers | HIGH | 3DES, arcfour, hmac-md5 in sshd_config |
 | Log Rotation | LOW | logrotate not configured or inactive |
+
+---
+
+## Architecture
+
+```
+infrastructure-security-auditor/
+├── auditor.py                          ← Entry point
+├── src/
+│   ├── cli.py                          ← Click CLI (8 commands)
+│   ├── config.py                       ← Environment variables, constants, mappings
+│   ├── scanner/
+│   │   ├── windows_scanner.py          ← 15 PowerShell-based checks (local/WinRM)
+│   │   ├── linux_scanner.py            ← 18 shell-based checks (local/SSH)
+│   │   ├── network_discovery.py        ← Ping sweep + OS detection
+│   │   └── batch_scanner.py            ← Parallel multi-host scanning
+│   ├── analyzer/
+│   │   ├── analyzer.py                 ← Risk scoring + Claude AI integration
+│   │   └── risk_scorer.py              ← Weighted CVSS-like algorithm
+│   ├── reporter/
+│   │   ├── html_generator.py           ← Single-server HTML report renderer
+│   │   ├── network_reporter.py         ← Network-wide HTML report renderer
+│   │   └── templates/                  ← Jinja2 HTML templates
+│   ├── tui/
+│   │   ├── interactive.py              ← TUI entry point
+│   │   ├── menu.py                     ← Main menu navigation
+│   │   ├── scanner_ui.py               ← Scan + discovery flows
+│   │   ├── results_ui.py               ← Report generation flow
+│   │   ├── components.py               ← Reusable Rich panels/tables
+│   │   └── styles.py                   ← Colors + theme
+│   └── remediator/
+│       └── playbook_gen.py             ← Ansible/PowerShell playbook generation
+├── tests/                              ← pytest suite (484 tests, 83% coverage)
+├── docs/                               ← Technical documentation
+└── examples/                           ← Case studies and sample data
+```
+
+**Data flow — single server:**
+
+```
+Target Host
+    │
+    ▼
+WindowsScanner / LinuxScanner      executes checks concurrently
+    │  scan_results.json
+    ▼
+Analyzer.analyze()                 risk score + compliance % + AI recs
+    │  analysis_data
+    ▼
+HTMLReporter.generate()            renders standalone HTML report
+```
+
+**Data flow — network audit:**
+
+```
+Network CIDR / IP range
+    │
+    ▼
+NetworkDiscovery.discover_hosts()  ping sweep + OS detection
+    │  [HostDict list]
+    ▼
+BatchScanner.scan_with_progress()  parallel WindowsScanner/LinuxScanner
+    │  network_scan.json
+    ▼
+NetworkReporter.save_reports()     summary + consolidated HTML
+```
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed module descriptions.
 
 ---
 
@@ -289,29 +334,27 @@ A CVSS-inspired weighted algorithm normalised to `[0.0, 10.0]`:
 | CIS Benchmarks (Windows + Linux) | 356+ controls |
 | PCI DSS v3.2.1 | 251 requirements |
 
-Compliance percentages reflect the proportion of mapped controls passing on the target host.
-
 ---
 
 ## Case Studies
 
 ### Financial Services Firm
 - **Environment:** 25 Windows servers
-- **Challenge:** ISO 27001 compliance audit with 4-week deadline
+- **Challenge:** ISO 27001 audit with 4-week deadline
 - **Result:** 72% → 90% compliance in 2 weeks; audit passed with no major findings
-- **Key findings resolved:** SMBv1 on 6 servers, LLMNR enabled enterprise-wide, 3 expired TLS certs
+- **Key findings:** SMBv1 on 6 servers, LLMNR enabled enterprise-wide, 3 expired TLS certs
 
 ### E-Commerce Platform
 - **Environment:** 10 Linux servers (Ubuntu 22.04)
-- **Challenge:** CIS Benchmarks Level 2 assessment before Black Friday
+- **Challenge:** CIS Benchmarks Level 2 before Black Friday
 - **Result:** Risk score 8.1 → 1.4 after 3-day hardening sprint
-- **Key findings resolved:** Root SSH enabled on 4 servers, NOPASSWD sudo on deploy user, AppArmor disabled
+- **Key findings:** Root SSH on 4 servers, NOPASSWD sudo on deploy user, AppArmor disabled
 
 ### Enterprise Mixed Infrastructure
 - **Environment:** 35 servers (20 Windows + 15 Linux)
-- **Challenge:** Unified compliance audit for SOC 2 Type II preparation
-- **Result:** Single comprehensive report, clear 3-month hardening roadmap, SOC 2 audit passed
-- **Key findings resolved:** Consistent policy applied across OS boundaries
+- **Challenge:** Unified compliance for SOC 2 Type II preparation
+- **Result:** Single consolidated report, clear 3-month roadmap, SOC 2 passed
+- **Key findings:** Policy inconsistencies across OS boundaries resolved
 
 ---
 
@@ -326,15 +369,13 @@ Compliance percentages reflect the proportion of mapped controls passing on the 
 | Compliance Assessment (ISO/CIS/PCI) | $1,000–3,000 | 1 business day |
 | Hardening Implementation | $100–150/hr | Variable |
 
-Includes: scan execution, HTML report, executive summary, prioritised remediation roadmap.
-
 ---
 
 ## Code Quality
 
 ```
-362 tests passing   •   82% coverage   •   0 flake8 errors
-PEP 8 compliant   •   Type hints throughout   •   Comprehensive docstrings
+484 tests passing   •   83% coverage   •   0 flake8 errors
+PEP 8 compliant   •   Type hints throughout   •   Google-style docstrings
 ```
 
 ```bash
@@ -342,58 +383,12 @@ PEP 8 compliant   •   Type hints throughout   •   Comprehensive docstrings
 pytest tests/ -v --cov=src --cov-report=term-missing
 
 # Lint
-flake8 src/ tests/
+flake8 src/
 
 # Format
 black src/ tests/
 isort src/ tests/
 ```
-
----
-
-## Architecture
-
-```
-infrastructure-security-auditor/
-├── auditor.py                     ← Entry point
-├── src/
-│   ├── cli.py                     ← Click CLI (scan, analyze, report, version)
-│   ├── config.py                  ← Environment variables, constants, mappings
-│   ├── scanner/
-│   │   ├── windows_scanner.py     ← 15 PowerShell-based checks (local/WinRM)
-│   │   └── linux_scanner.py       ← 18 shell-based checks (local/SSH)
-│   ├── analyzer/
-│   │   ├── analyzer.py            ← Risk scoring + Claude AI integration
-│   │   └── risk_scorer.py         ← Weighted CVSS-like algorithm
-│   ├── reporter/
-│   │   ├── html_generator.py      ← Jinja2 HTML report renderer
-│   │   └── templates/report.html  ← Standalone HTML template
-│   └── remediator/
-│       └── playbook_gen.py        ← Ansible/PowerShell playbook generation
-├── tests/                         ← pytest suite (362 tests, 82% coverage)
-├── docs/                          ← Technical documentation
-└── examples/                      ← Case studies and sample data
-```
-
-**Data flow:**
-
-```
-Target Host
-    │
-    ▼
-WindowsScanner / LinuxScanner     executes checks concurrently
-    │  scan_results.json
-    ▼
-Analyzer.analyze()                 risk score + compliance % + AI recs
-    │  analysis_data
-    ▼
-HTMLReporter.generate()            renders standalone HTML report
-    │  report.html
-    ▼
-Browser / Distribution
-```
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed module descriptions and extension points.
 
 ---
 
@@ -428,10 +423,8 @@ pip install pytest pytest-cov pytest-mock flake8 black isort mypy
 # Run tests
 pytest tests/ -v --cov=src --cov-report=term-missing
 
-# Add a new check — see CONTRIBUTING.md for the 5-step process
+# Add a new check — see CONTRIBUTING.md for the step-by-step process
 ```
-
-To add a new security check, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 **Commit format:** `[AgentN] descriptive message`
 
