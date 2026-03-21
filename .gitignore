@@ -19,10 +19,12 @@ htmlcov/
 dist/
 build/
 
-# Reports
+# Reports (generated output — not source templates)
 reports/
 output/
 *.html
+# Allow Jinja2 HTML templates in src/
+!src/**/*.html
 
 # OS
 .DS_Store

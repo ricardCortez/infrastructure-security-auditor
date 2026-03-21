@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Audit Report – {{ server }}</title>
+<style>
+  /* ====== Reset & Base ====== */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --critical: #dc2626; --critical-bg: #fef2f2; --critical-border: #fca5a5;
+    --high: #ea580c;     --high-bg: #fff7ed;     --high-border: #fdba74;
+    --medium: #d97706;   --medium-bg: #fffbeb;   --medium-border: #fcd34d;
+    --low: #16a34a;      --low-bg: #f0fdf4;      --low-border: #86efac;
+    --pass: #15803d;     --fail: #dc2626;         --warn: #d97706;
+    --bg: #0f172a; --surface: #1e293b; --surface2: #334155;
+    --text: #f1f5f9; --text-muted: #94a3b8; --accent: #6366f1;
+    --border: #334155; --radius: 8px;
+  }
+  body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.6;
+    font-size: 15px;
+  }
+  a { color: var(--accent); text-decoration: none; }
+
+  /* ====== Layout ====== */
+  .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  /* ====== Header ====== */
+  .report-header {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-bottom: 3px solid var(--accent);
+    padding: 3rem 0 2rem;
+  }
+  .report-header .container { display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; }
+  .header-icon { font-size: 3.5rem; }
+  .header-text h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; }
+  .header-text .subtitle { color: var(--text-muted); margin-top: .25rem; font-size: .9rem; }
+  .header-meta { margin-left: auto; text-align: right; }
+  .header-meta p { color: var(--text-muted); font-size: .85rem; }
+  .header-meta strong { color: var(--text); }
+
+  /* ====== Nav ====== */
+  nav {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100; padding: .75rem 0;
+  }
+  nav .container { display: flex; gap: 1.5rem; overflow-x: auto; }
+  nav a {
+    color: var(--text-muted); white-space: nowrap; font-size: .85rem;
+    padding: .25rem 0; border-bottom: 2px solid transparent;
+    transition: color .2s, border-color .2s;
+  }
+  nav a:hover { color: var(--text); border-color: var(--accent); }
+
+  /* ====== Section ====== */
+  .section { padding: 3rem 0; border-bottom: 1px solid var(--border); }
+  .section:last-child { border-bottom: none; }
+  .section-title {
+    font-size: 1.4rem; font-weight: 700; margin-bottom: 1.5rem;
+    display: flex; align-items: center; gap: .6rem;
+  }
+  .section-title span { font-size: 1.3rem; }
+
+  /* ====== Cards ====== */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1rem;
+  }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+  .metric-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.5rem; text-align: center;
+  }
+  .metric-card .value { font-size: 2.5rem; font-weight: 800; line-height: 1; }
+  .metric-card .label { color: var(--text-muted); font-size: .85rem; margin-top: .5rem; }
+
+  /* ====== Risk Score ====== */
+  .risk-score-wrapper { display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; }
+  .risk-dial {
+    width: 140px; height: 140px; border-radius: 50%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 2.8rem; font-weight: 800; border: 6px solid;
+    flex-shrink: 0;
+  }
+  .risk-dial small { font-size: .7rem; font-weight: 400; letter-spacing: .1em; text-transform: uppercase; }
+  .risk-CRITICAL { border-color: var(--critical); color: var(--critical); }
+  .risk-HIGH     { border-color: var(--high);     color: var(--high);     }
+  .risk-MEDIUM   { border-color: var(--medium);   color: var(--medium);   }
+  .risk-LOW      { border-color: var(--low);      color: var(--low);      }
+  .risk-MINIMAL  { border-color: #22c55e;         color: #22c55e;         }
+
+  .risk-bar-wrap { flex: 1; min-width: 200px; }
+  .risk-bar-label { font-size: .8rem; color: var(--text-muted); margin-bottom: .4rem; }
+  .risk-bar {
+    height: 10px; border-radius: 5px; background: var(--surface2); overflow: hidden;
+    margin-bottom: .8rem;
+  }
+  .risk-bar-fill {
+    height: 100%; border-radius: 5px;
+    background: linear-gradient(90deg, #22c55e, #f59e0b, #ef4444);
+    transition: width .5s ease;
+  }
+
+  /* ====== Severity Badges ====== */
+  .badge {
+    display: inline-block; padding: .2rem .65rem; border-radius: 20px;
+    font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  }
+  .badge-CRITICAL { background: var(--critical-bg); color: var(--critical); border: 1px solid var(--critical-border); }
+  .badge-HIGH     { background: var(--high-bg);     color: var(--high);     border: 1px solid var(--high-border); }
+  .badge-MEDIUM   { background: var(--medium-bg);   color: var(--medium);   border: 1px solid var(--medium-border); }
+  .badge-LOW      { background: var(--low-bg);      color: var(--low);      border: 1px solid var(--low-border); }
+  .badge-PASS     { background: #052e16; color: #4ade80; border: 1px solid #166534; }
+  .badge-FAIL     { background: #450a0a; color: #f87171; border: 1px solid #7f1d1d; }
+  .badge-WARNING  { background: #451a03; color: #fb923c; border: 1px solid #7c2d12; }
+
+  /* ====== Findings table ====== */
+  .findings-group { margin-bottom: 1.5rem; }
+  .findings-group-header {
+    display: flex; align-items: center; gap: .75rem;
+    padding: .75rem 1rem; border-radius: var(--radius) var(--radius) 0 0;
+    font-weight: 700; font-size: .9rem;
+  }
+  .group-CRITICAL { background: var(--critical-bg); color: var(--critical); }
+  .group-HIGH     { background: var(--high-bg);     color: var(--high); }
+  .group-MEDIUM   { background: var(--medium-bg);   color: var(--medium); }
+  .group-LOW      { background: var(--low-bg);      color: var(--low); }
+
+  details {
+    border: 1px solid var(--border); border-top: none;
+    background: var(--surface);
+  }
+  details:last-child { border-radius: 0 0 var(--radius) var(--radius); }
+  summary {
+    padding: .85rem 1rem; cursor: pointer; display: flex; align-items: center;
+    gap: .75rem; list-style: none; transition: background .15s;
+  }
+  summary:hover { background: var(--surface2); }
+  summary::marker, summary::-webkit-details-marker { display: none; }
+  .summary-chevron { margin-left: auto; transition: transform .2s; color: var(--text-muted); }
+  details[open] .summary-chevron { transform: rotate(90deg); }
+  .summary-name { flex: 1; font-weight: 600; }
+  .finding-body {
+    padding: 1rem 1.25rem 1.25rem; border-top: 1px solid var(--border);
+    font-size: .9rem;
+  }
+  .finding-body p { margin-bottom: .5rem; }
+  .finding-body strong { color: var(--text-muted); font-size: .8rem; text-transform: uppercase; font-weight: 600; }
+  .recommendation-box {
+    background: var(--surface2); border-left: 3px solid var(--accent);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: .75rem 1rem; margin-top: .75rem; font-size: .88rem;
+  }
+
+  /* ====== Compliance ====== */
+  .compliance-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+  .compliance-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.25rem;
+  }
+  .compliance-card h3 { font-size: 1rem; margin-bottom: 1rem; }
+  .compliance-pct {
+    font-size: 2.2rem; font-weight: 800;
+    color: {% raw %}{{ 'var(--low)' if compliance_score >= 0.8 else ('var(--medium)' if compliance_score >= 0.6 else 'var(--critical)') }}{% endraw %};
+  }
+  .compliance-bar { height: 8px; background: var(--surface2); border-radius: 4px; margin: .75rem 0; overflow: hidden; }
+  .compliance-bar-fill { height: 100%; border-radius: 4px; transition: width .5s; }
+  .bar-good   { background: #22c55e; }
+  .bar-medium { background: #f59e0b; }
+  .bar-poor   { background: #ef4444; }
+  .compliance-controls { font-size: .8rem; color: var(--text-muted); }
+
+  /* ====== Recommendations ====== */
+  .rec-item {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.25rem; margin-bottom: .75rem;
+    display: grid; grid-template-columns: auto 1fr; gap: 1rem; align-items: start;
+  }
+  .rec-number {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--accent); color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: .85rem; flex-shrink: 0;
+  }
+  .rec-content h4 { font-size: .95rem; margin-bottom: .4rem; }
+  .rec-meta { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: .5rem; }
+  .rec-tag {
+    font-size: .75rem; color: var(--text-muted);
+    background: var(--surface2); padding: .15rem .5rem;
+    border-radius: 4px;
+  }
+  .rec-command {
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    background: #0f172a; color: #a5f3fc;
+    padding: .5rem .75rem; border-radius: 4px; font-size: .8rem;
+    margin-top: .5rem; overflow-x: auto; white-space: pre-wrap; word-break: break-all;
+  }
+
+  /* ====== Roadmap ====== */
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th {
+    text-align: left; padding: .75rem 1rem; background: var(--surface2);
+    color: var(--text-muted); font-size: .8rem; text-transform: uppercase; font-weight: 600;
+  }
+  td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+  .priority-1 { color: var(--critical); font-weight: 700; }
+  .priority-2 { color: var(--high); }
+  .priority-3 { color: var(--medium); }
+  .priority-4 { color: var(--low); }
+
+  /* ====== Technical Appendix ====== */
+  .appendix-toggle { width: 100%; }
+  .raw-json {
+    background: #0f172a; color: #e2e8f0;
+    font-family: 'Cascadia Code', Consolas, monospace;
+    font-size: .78rem; padding: 1.25rem;
+    border-radius: var(--radius); overflow-x: auto;
+    white-space: pre-wrap; word-break: break-all;
+    max-height: 400px; overflow-y: auto;
+    border: 1px solid var(--border);
+  }
+
+  /* ====== Footer ====== */
+  footer {
+    background: var(--surface); border-top: 1px solid var(--border);
+    padding: 1.5rem 0; text-align: center;
+    color: var(--text-muted); font-size: .85rem;
+  }
+
+  @media print {
+    nav, footer { display: none; }
+    body { background: white; color: #111; }
+    .card, .metric-card, .compliance-card, .rec-item { border: 1px solid #ccc; }
+    details { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ====== HEADER ====== -->
+<header class="report-header">
+  <div class="container">
+    <div class="header-icon">🛡️</div>
+    <div class="header-text">
+      <h1>Security Audit Report</h1>
+      <p class="subtitle">Infrastructure Security Assessment · Windows Platform</p>
+    </div>
+    <div class="header-meta">
+      <p><strong>Target:</strong> {{ server }}</p>
+      <p><strong>Generated:</strong> {{ generated_at }}</p>
+      <p><strong>Duration:</strong> {{ scan_duration }}s</p>
+      <p><strong>Checks run:</strong> {{ total_checks }}</p>
+    </div>
+  </div>
+</header>
+
+<!-- ====== NAV ====== -->
+<nav>
+  <div class="container">
+    <a href="#executive-summary">Executive Summary</a>
+    <a href="#risk-dashboard">Risk Dashboard</a>
+    <a href="#findings">Security Findings</a>
+    <a href="#compliance">Compliance Status</a>
+    <a href="#recommendations">Recommendations</a>
+    <a href="#roadmap">Remediation Roadmap</a>
+    <a href="#appendix">Technical Appendix</a>
+  </div>
+</nav>
+
+<div class="container">
+
+<!-- ====== 1. EXECUTIVE SUMMARY ====== -->
+<section class="section" id="executive-summary">
+  <h2 class="section-title"><span>📋</span> Executive Summary</h2>
+  <div class="card">
+    <p>
+      An automated security assessment was conducted against <strong>{{ server }}</strong>
+      on <strong>{{ generated_at }}</strong>. A total of <strong>{{ total_checks }}</strong>
+      security controls were evaluated across firewall configuration, authentication
+      policies, patch management, encryption standards, and access controls.
+    </p>
+    <br>
+    <p>
+      The assessment identified <strong style="color: var(--fail)">{{ summary.FAIL }}</strong>
+      failing control(s) and <strong style="color: var(--warn)">{{ summary.WARNING }}</strong>
+      warning(s), with an overall risk score of
+      <strong class="risk-{{ risk_label }}">{{ risk_score }}/10 ({{ risk_label }})</strong>.
+      {% if severity_distribution.CRITICAL > 0 %}
+      <strong style="color: var(--critical)">⚠ {{ severity_distribution.CRITICAL }} CRITICAL finding(s) require immediate attention.</strong>
+      {% elif severity_distribution.HIGH > 0 %}
+      <strong style="color: var(--high)">{{ severity_distribution.HIGH }} HIGH-severity finding(s) should be addressed as a priority.</strong>
+      {% else %}
+      No critical issues were detected. Address highlighted findings per the remediation roadmap.
+      {% endif %}
+    </p>
+    <br>
+    <p>
+      Immediate remediation efforts should focus on
+      {% if recommendations %}
+      <strong>{{ recommendations[0].check }}</strong>
+      {% if recommendations|length > 1 %} and <strong>{{ recommendations[1].check }}</strong>{% endif %}.
+      {% else %}
+      maintaining the current security posture and scheduling routine patch cycles.
+      {% endif %}
+      Full remediation details are provided in the sections below.
+    </p>
+  </div>
+
+  <!-- KPI strip -->
+  <div class="card-grid" style="margin-top: 1rem;">
+    <div class="metric-card">
+      <div class="value" style="color: var(--fail)">{{ summary.FAIL }}</div>
+      <div class="label">Failed Controls</div>
+    </div>
+    <div class="metric-card">
+      <div class="value" style="color: var(--warn)">{{ summary.WARNING }}</div>
+      <div class="label">Warnings</div>
+    </div>
+    <div class="metric-card">
+      <div class="value" style="color: var(--pass)">{{ summary.PASS }}</div>
+      <div class="label">Passed Controls</div>
+    </div>
+    <div class="metric-card">
+      <div class="value" style="color: var(--accent)">{{ total_checks }}</div>
+      <div class="label">Total Checks</div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== 2. RISK DASHBOARD ====== -->
+<section class="section" id="risk-dashboard">
+  <h2 class="section-title"><span>📊</span> Risk Dashboard</h2>
+  <div class="card">
+    <div class="risk-score-wrapper">
+      <div class="risk-dial risk-{{ risk_label }}">
+        {{ risk_score }}<small>/ 10</small>
+      </div>
+      <div class="risk-bar-wrap">
+        <p style="font-size:1.1rem; font-weight:700; margin-bottom:.75rem;">
+          Overall Risk: <span class="badge badge-{{ risk_label }}">{{ risk_label }}</span>
+        </p>
+        <div class="risk-bar-label">Risk Score (0 = Minimal, 10 = Critical)</div>
+        <div class="risk-bar">
+          <div class="risk-bar-fill" style="width: {{ (risk_score / 10 * 100)|int }}%;"></div>
+        </div>
+
+        <!-- Severity distribution bars -->
+        {% for sev in ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] %}
+        {% set count = severity_distribution[sev] %}
+        {% if count > 0 %}
+        <div class="risk-bar-label">
+          <span class="badge badge-{{ sev }}">{{ sev }}</span> – {{ count }} finding(s)
+        </div>
+        <div class="risk-bar" style="margin-bottom: .5rem;">
+          <div class="risk-bar-fill"
+               style="width: {{ [100, (count / total_checks * 100)|int]|min }}%;
+                      background: {% if sev == 'CRITICAL' %}var(--critical){% elif sev == 'HIGH' %}var(--high){% elif sev == 'MEDIUM' %}var(--medium){% else %}var(--low){% endif %};">
+          </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== 3. SECURITY FINDINGS ====== -->
+<section class="section" id="findings">
+  <h2 class="section-title"><span>🔍</span> Security Findings</h2>
+
+  {% for sev in ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] %}
+  {% set group = findings_by_severity[sev] %}
+  {% if group %}
+  <div class="findings-group">
+    <div class="findings-group-header group-{{ sev }}">
+      <span class="badge badge-{{ sev }}">{{ sev }}</span>
+      {{ group|length }} finding(s)
+    </div>
+    {% for finding in group %}
+    <details {% if sev in ['CRITICAL', 'HIGH'] and finding.status == 'FAIL' %}open{% endif %}>
+      <summary>
+        <span class="badge badge-{{ finding.status }}">{{ finding.status }}</span>
+        <span class="summary-name">{{ finding.check }}</span>
+        <span class="summary-chevron">›</span>
+      </summary>
+      <div class="finding-body">
+        <p><strong>Description</strong><br>{{ finding.description }}</p>
+        <div class="recommendation-box">
+          💡 <strong>Recommendation:</strong> {{ finding.recommendation }}
+        </div>
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endfor %}
+</section>
+
+<!-- ====== 4. COMPLIANCE STATUS ====== -->
+<section class="section" id="compliance">
+  <h2 class="section-title"><span>✅</span> Compliance Status</h2>
+  <div class="compliance-grid">
+    {% for std, pct in compliance.items() %}
+    {% set pct_int = (pct * 100)|int %}
+    <div class="compliance-card">
+      <h3>{{ std|replace('_', ' ') }}</h3>
+      <div class="compliance-pct" style="color: {% if pct >= 0.8 %}var(--low){% elif pct >= 0.6 %}var(--medium){% else %}var(--critical){% endif %}">
+        {{ pct_int }}%
+      </div>
+      <div class="compliance-bar">
+        <div class="compliance-bar-fill {% if pct >= 0.8 %}bar-good{% elif pct >= 0.6 %}bar-medium{% else %}bar-poor{% endif %}"
+             style="width: {{ pct_int }}%;"></div>
+      </div>
+      <div class="compliance-controls">
+        Estimated compliance based on {{ total_checks }} evaluated controls.
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <p style="margin-top:1rem; color: var(--text-muted); font-size:.85rem;">
+    ⚠ Compliance percentages are estimates based on the controls covered by this automated scan.
+    A full compliance audit requires additional manual assessment.
+  </p>
+</section>
+
+<!-- ====== 5. DETAILED RECOMMENDATIONS ====== -->
+<section class="section" id="recommendations">
+  <h2 class="section-title"><span>💡</span> Detailed Recommendations</h2>
+  {% if recommendations %}
+    {% for rec in recommendations %}
+    <div class="rec-item">
+      <div class="rec-number">{{ loop.index }}</div>
+      <div class="rec-content">
+        <h4>{{ rec.check }}
+          <span class="badge badge-{{ rec.severity }}" style="margin-left:.5rem;">{{ rec.severity }}</span>
+        </h4>
+        <p>{{ rec.action }}</p>
+        {% if rec.command and rec.command != 'See documentation.' %}
+        <div class="rec-command">{{ rec.command }}</div>
+        {% endif %}
+        <div class="rec-meta">
+          <span class="rec-tag">⚡ Effort: {{ rec.effort }}</span>
+          <span class="rec-tag">⏱ Timeline: {{ rec.timeline }}</span>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="card">
+      <p style="color: var(--pass);">🎉 No remediation actions required. All controls passed.</p>
+    </div>
+  {% endif %}
+</section>
+
+<!-- ====== 6. REMEDIATION ROADMAP ====== -->
+<section class="section" id="roadmap">
+  <h2 class="section-title"><span>🗺️</span> Remediation Roadmap</h2>
+  {% if recommendations %}
+  <div class="card" style="padding: 0; overflow: hidden;">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Finding</th>
+          <th>Severity</th>
+          <th>Effort</th>
+          <th>Timeline</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for rec in recommendations %}
+        <tr>
+          <td class="priority-{{ loop.index if loop.index <= 4 else 4 }}"><strong>P{{ loop.index }}</strong></td>
+          <td>{{ rec.check }}</td>
+          <td><span class="badge badge-{{ rec.severity }}">{{ rec.severity }}</span></td>
+          <td>{{ rec.effort }}</td>
+          <td>{{ rec.timeline }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card">
+    <p style="color: var(--pass);">No remediation items required.</p>
+  </div>
+  {% endif %}
+</section>
+
+<!-- ====== 7. TECHNICAL APPENDIX ====== -->
+<section class="section" id="appendix">
+  <h2 class="section-title"><span>🔧</span> Technical Appendix</h2>
+  <div class="card">
+    <p style="margin-bottom:1rem; color: var(--text-muted); font-size:.9rem;">
+      Raw scan data in JSON format. Useful for integration with SIEM, ticketing systems, or custom tooling.
+    </p>
+    <details class="appendix-toggle">
+      <summary style="padding: .75rem 0; cursor: pointer; color: var(--accent);">
+        ▶ Show raw findings data
+      </summary>
+      <div style="margin-top:1rem;">
+        <pre class="raw-json">{{ raw_json }}</pre>
+      </div>
+    </details>
+  </div>
+</section>
+
+</div><!-- /container -->
+
+<footer>
+  <p>Infrastructure Security Auditor v{{ app_version }} &nbsp;·&nbsp;
+     Generated {{ generated_at }} &nbsp;·&nbsp;
+     For internal use only – handle with care
+  </p>
+</footer>
+
+</body>
+</html>

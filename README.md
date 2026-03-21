@@ -118,6 +118,64 @@ python auditor.py report --input localhost_scan.json --output report.html
 python auditor.py report --input localhost_scan.json --output report.html --no-ai
 ```
 
+### Interactive TUI (no flags needed)
+
+```bash
+python auditor.py interactive
+```
+
+Launches a menu-driven interface — select options by number, no command memorisation required.
+
+---
+
+## Network-Wide Auditing (Phase 5)
+
+Scan entire subnets automatically. Discover hosts, detect OS, scan all servers in parallel,
+and generate a consolidated network report.
+
+### Step 1 — Discover hosts in a network
+
+```bash
+# CIDR notation
+python auditor.py discover --network 192.168.0.0/24
+
+# IP range notation
+python auditor.py discover --network 10.0.0.1-50 --timeout 2 --output hosts.json
+```
+
+Output: JSON with IP, hostname, OS hint (windows/linux/unknown), open ports, RTT.
+
+### Step 2 — Scan discovered hosts
+
+```bash
+# Auto-discover then scan
+python auditor.py scan-network --network 192.168.0.0/24
+
+# Scan from a saved discovery file
+python auditor.py scan-network --file hosts.json --max-workers 20
+```
+
+Output: `network_scan_192_168_0_0_24.json` with findings for every host.
+
+### Step 3 — Generate consolidated network report
+
+```bash
+# Full report (all servers + remediation roadmap)
+python auditor.py report-network --input network_scan_192_168_0_0_24.json
+
+# Lightweight summary page only
+python auditor.py report-network --input network_scan_192_168_0_0_24.json --summary-only
+```
+
+Output: `reports/network_*/network_consolidated_report.html` + `network_summary.html`
+
+### Full pipeline (one liner)
+
+```bash
+python auditor.py scan-network --network 192.168.0.0/24 --output net.json && \
+python auditor.py report-network --input net.json --output reports/audit/
+```
+
 > Full command reference and workflow examples: [docs/USAGE.md](docs/USAGE.md)
 
 ---
@@ -125,8 +183,11 @@ python auditor.py report --input localhost_scan.json --output report.html --no-a
 ## Features
 
 - **33 security checks** — 15 Windows (PowerShell/WinRM) + 18 Linux (shell/SSH)
+- **Network-wide auditing** — discover + scan entire subnets (50–150+ servers) automatically
+- **Interactive TUI** — menu-driven terminal interface, no flags required
 - **AI-powered analysis** via Claude (Anthropic) — falls back gracefully to static recommendations
 - **Professional HTML reports** — standalone files, no external CDN, suitable for air-gap environments
+- **Consolidated network reports** — per-server details, compliance heatmap, unified roadmap
 - **Risk scoring (0–10)** using a CVSS-inspired weighted algorithm
 - **Compliance mapping** against ISO 27001, CIS Benchmarks, and PCI-DSS
 - **Local and remote scanning** — localhost, WinRM (Windows), SSH key or password (Linux)

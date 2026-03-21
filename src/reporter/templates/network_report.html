@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Network Security Report – {{ network }}</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --critical: #dc2626; --critical-bg: #fef2f2; --critical-border: #fca5a5;
+    --high: #ea580c;     --high-bg: #fff7ed;     --high-border: #fdba74;
+    --medium: #d97706;   --medium-bg: #fffbeb;   --medium-border: #fcd34d;
+    --low: #16a34a;      --low-bg: #f0fdf4;      --low-border: #86efac;
+    --pass: #15803d;     --fail: #dc2626;        --warn: #d97706;
+    --bg: #0f172a; --surface: #1e293b; --surface2: #334155;
+    --text: #f1f5f9; --text-muted: #94a3b8; --accent: #6366f1;
+    --border: #334155; --radius: 8px;
+  }
+  body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+         background: var(--bg); color: var(--text); line-height: 1.6; font-size: 15px; }
+  a { color: var(--accent); text-decoration: none; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  /* Header */
+  .report-header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+                   border-bottom: 3px solid var(--accent); padding: 3rem 0 2rem; }
+  .report-header .container { display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; }
+  .header-icon { font-size: 3.5rem; }
+  .header-text h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; }
+  .header-text .subtitle { color: var(--text-muted); margin-top: .25rem; font-size: .9rem; }
+  .header-meta { margin-left: auto; text-align: right; }
+  .header-meta p { color: var(--text-muted); font-size: .85rem; }
+  .header-meta strong { color: var(--text); }
+
+  /* Nav */
+  nav { background: var(--surface); border-bottom: 1px solid var(--border);
+        position: sticky; top: 0; z-index: 100; padding: .75rem 0; }
+  nav .container { display: flex; gap: 1.5rem; overflow-x: auto; }
+  nav a { color: var(--text-muted); white-space: nowrap; font-size: .85rem;
+          padding: .25rem 0; border-bottom: 2px solid transparent;
+          transition: color .2s, border-color .2s; }
+  nav a:hover { color: var(--text); border-color: var(--accent); }
+
+  /* Sections */
+  .section { padding: 3rem 0; border-bottom: 1px solid var(--border); }
+  .section:last-child { border-bottom: none; }
+  .section-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 1.5rem;
+                   display: flex; align-items: center; gap: .6rem; }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border);
+          border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1rem; }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+  .metric-card { background: var(--surface); border: 1px solid var(--border);
+                 border-radius: var(--radius); padding: 1.5rem; text-align: center; }
+  .metric-card .value { font-size: 2.5rem; font-weight: 800; line-height: 1; }
+  .metric-card .label { color: var(--text-muted); font-size: .85rem; margin-top: .5rem; }
+
+  /* Risk Score */
+  .risk-score-wrapper { display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; }
+  .risk-score-dial { position: relative; width: 140px; height: 140px; flex-shrink: 0; }
+  .risk-score-dial svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .risk-score-dial .score-text { position: absolute; inset: 0; display: flex;
+    flex-direction: column; align-items: center; justify-content: center; }
+  .risk-score-dial .score-num { font-size: 2.2rem; font-weight: 800; line-height: 1; }
+  .risk-score-dial .score-label { font-size: .75rem; color: var(--text-muted); margin-top: .15rem; }
+  .risk-bar-bg { width: 100%; background: var(--surface2); border-radius: 8px; height: 12px;
+                 margin-top: .5rem; overflow: hidden; }
+  .risk-bar-fill { height: 100%; border-radius: 8px; transition: width .6s ease; }
+
+  /* Severity badges */
+  .badge { display: inline-block; padding: .2rem .6rem; border-radius: 4px;
+           font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .badge-critical { background: var(--critical-bg); color: var(--critical); border: 1px solid var(--critical-border); }
+  .badge-high     { background: var(--high-bg);     color: var(--high);     border: 1px solid var(--high-border); }
+  .badge-medium   { background: var(--medium-bg);   color: var(--medium);   border: 1px solid var(--medium-border); }
+  .badge-low      { background: var(--low-bg);      color: var(--low);      border: 1px solid var(--low-border); }
+  .badge-pass     { background: #f0fdf4; color: var(--pass); border: 1px solid #86efac; }
+  .badge-fail     { background: var(--critical-bg); color: var(--fail); border: 1px solid var(--critical-border); }
+  .badge-warning  { background: var(--medium-bg); color: var(--medium); border: 1px solid var(--medium-border); }
+
+  /* Tables */
+  .data-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  .data-table th { background: var(--surface2); padding: .75rem 1rem; text-align: left;
+                   font-weight: 600; font-size: .8rem; text-transform: uppercase;
+                   letter-spacing: .05em; color: var(--text-muted); }
+  .data-table td { padding: .65rem 1rem; border-bottom: 1px solid var(--border); }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: var(--surface2); }
+  .table-wrap { background: var(--surface); border: 1px solid var(--border);
+                border-radius: var(--radius); overflow: hidden; margin-bottom: 1.5rem; }
+
+  /* Compliance bars */
+  .compliance-item { margin-bottom: 1.25rem; }
+  .compliance-header { display: flex; justify-content: space-between; margin-bottom: .4rem;
+                       font-size: .9rem; }
+  .compliance-bar-bg { background: var(--surface2); border-radius: 8px; height: 14px;
+                       overflow: hidden; }
+  .compliance-bar-fill { height: 100%; border-radius: 8px; transition: width .6s ease; }
+
+  /* Collapsible server sections */
+  details { background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius); margin-bottom: .75rem; overflow: hidden; }
+  details summary { padding: 1rem 1.25rem; cursor: pointer; font-weight: 600;
+                    display: flex; align-items: center; gap: .75rem;
+                    list-style: none; user-select: none; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: '▶'; font-size: .7rem; color: var(--text-muted);
+                             transition: transform .2s; }
+  details[open] summary::before { transform: rotate(90deg); }
+  details summary:hover { background: var(--surface2); }
+  details .details-body { padding: 1rem 1.25rem 1.25rem; border-top: 1px solid var(--border); }
+
+  /* Pre / code */
+  pre { background: #020617; border: 1px solid var(--border); border-radius: var(--radius);
+        padding: 1rem; overflow-x: auto; font-size: .8rem; color: #94a3b8;
+        max-height: 400px; overflow-y: auto; }
+
+  /* Status dots */
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: .4rem; }
+  .dot-success { background: #16a34a; }
+  .dot-error   { background: #dc2626; }
+  .dot-timeout { background: #d97706; }
+
+  /* OS icon */
+  .os-icon { font-size: 1rem; }
+</style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header class="report-header">
+  <div class="container">
+    <div class="header-icon">🌐</div>
+    <div class="header-text">
+      <h1>Network Security Report</h1>
+      <div class="subtitle">{{ network }} &nbsp;·&nbsp; Infrastructure Security Auditor v{{ app_version }}</div>
+    </div>
+    <div class="header-meta">
+      <p><strong>Scan Timestamp</strong><br>{{ scan_timestamp }}</p>
+      <p style="margin-top:.5rem"><strong>Report Generated</strong><br>{{ report_generated }}</p>
+      <p style="margin-top:.5rem"><strong>Duration</strong><br>{{ "%.0f"|format(scan_duration_seconds) }}s</p>
+    </div>
+  </div>
+</header>
+
+<!-- ===== NAV ===== -->
+<nav>
+  <div class="container">
+    <a href="#risk">Risk Score</a>
+    <a href="#stats">Statistics</a>
+    <a href="#compliance">Compliance</a>
+    <a href="#servers">Servers</a>
+    <a href="#critical">Critical Servers</a>
+    <a href="#common">Common Findings</a>
+    {% if not summary_only %}<a href="#details">Server Details</a>{% endif %}
+    {% if not summary_only %}<a href="#appendix">Appendix</a>{% endif %}
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- ===== RISK SCORE ===== -->
+  <section class="section" id="risk">
+    <h2 class="section-title"><span>🎯</span> Network Risk Score</h2>
+    <div class="risk-score-wrapper">
+      <div class="risk-score-dial">
+        {% set pct = (network_risk_score / 10 * 100)|int %}
+        {% set r = 54 %}
+        {% set circ = 2 * 3.14159 * r %}
+        {% set offset = circ * (1 - pct / 100) %}
+        <svg viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="{{ r }}" fill="none" stroke="#334155" stroke-width="10"/>
+          <circle cx="60" cy="60" r="{{ r }}" fill="none" stroke="{{ network_risk_color }}"
+                  stroke-width="10" stroke-dasharray="{{ circ }}"
+                  stroke-dashoffset="{{ offset }}" stroke-linecap="round"/>
+        </svg>
+        <div class="score-text">
+          <span class="score-num" style="color:{{ network_risk_color }}">{{ network_risk_score }}</span>
+          <span class="score-label">/ 10</span>
+        </div>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:1.5rem;font-weight:700;color:{{ network_risk_color }}">{{ network_risk_label }}</div>
+        <div style="color:var(--text-muted);margin-top:.25rem">
+          Network-wide average risk score across {{ successful_scans }} successfully scanned servers.
+        </div>
+        <div class="risk-bar-bg" style="margin-top:1rem">
+          <div class="risk-bar-fill" style="width:{{ (network_risk_score/10*100)|int }}%;background:{{ network_risk_color }}"></div>
+        </div>
+        <div style="margin-top:.75rem;display:flex;gap:1rem;flex-wrap:wrap">
+          <span style="color:var(--critical)">■ Critical: {{ critical_findings }}</span>
+          <span style="color:var(--high)">■ High: {{ high_findings }}</span>
+          <span style="color:var(--medium)">■ Medium: {{ medium_findings }}</span>
+          <span style="color:var(--low)">■ Low: {{ low_findings }}</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== STATISTICS ===== -->
+  <section class="section" id="stats">
+    <h2 class="section-title"><span>📊</span> Network Statistics</h2>
+    <div class="card-grid">
+      <div class="metric-card">
+        <div class="value">{{ total_servers }}</div>
+        <div class="label">Servers Scanned</div>
+      </div>
+      <div class="metric-card">
+        <div class="value" style="color:var(--low)">{{ successful_scans }}</div>
+        <div class="label">Successful Scans</div>
+      </div>
+      <div class="metric-card">
+        <div class="value" style="color:var(--critical)">{{ failed_scans }}</div>
+        <div class="label">Failed / Timeout</div>
+      </div>
+      <div class="metric-card">
+        <div class="value" style="color:var(--high)">{{ total_findings }}</div>
+        <div class="label">Total Findings</div>
+      </div>
+      <div class="metric-card">
+        <div class="value" style="color:var(--critical)">{{ critical_findings }}</div>
+        <div class="label">Critical Findings</div>
+      </div>
+      <div class="metric-card">
+        <div class="value" style="color:var(--medium)">{{ high_findings }}</div>
+        <div class="label">High Findings</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== COMPLIANCE ===== -->
+  <section class="section" id="compliance">
+    <h2 class="section-title"><span>📋</span> Compliance Status</h2>
+    <div class="card" style="max-width:600px">
+      {% for label, pct in [("ISO 27001", compliance_iso27001), ("CIS Benchmarks", compliance_cis), ("PCI-DSS", compliance_pci)] %}
+      <div class="compliance-item">
+        <div class="compliance-header">
+          <span>{{ label }}</span>
+          <strong style="color:{% if pct >= 80 %}var(--low){% elif pct >= 60 %}var(--medium){% else %}var(--critical){% endif %}">{{ pct }}%</strong>
+        </div>
+        <div class="compliance-bar-bg">
+          <div class="compliance-bar-fill"
+               style="width:{{ pct }}%;background:{% if pct >= 80 %}var(--low){% elif pct >= 60 %}var(--medium){% else %}var(--critical){% endif %}"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <p style="color:var(--text-muted);font-size:.85rem;margin-top:.5rem">
+      Compliance percentages reflect the network-wide average pass rate across all scanned servers.
+    </p>
+  </section>
+
+  <!-- ===== SERVER MATRIX ===== -->
+  <section class="section" id="servers">
+    <h2 class="section-title"><span>🖥️</span> Server Matrix</h2>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>IP Address</th>
+            <th>Hostname</th>
+            <th>OS</th>
+            <th>Risk Score</th>
+            <th>Status</th>
+            {% if summary_only %}<th>Failures</th>{% endif %}
+            <th>Scan Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in servers %}
+          <tr>
+            <td><code>{{ s.ip }}</code></td>
+            <td>{{ s.hostname }}</td>
+            <td>
+              <span class="os-icon">{% if s.os == 'windows' %}🪟{% elif s.os == 'linux' %}🐧{% else %}❓{% endif %}</span>
+              {{ s.os }}
+            </td>
+            <td>
+              {% set rc = "var(--critical)" if s.risk_score >= 8 else "var(--high)" if s.risk_score >= 6 else "var(--medium)" if s.risk_score >= 4 else "var(--low)" %}
+              <strong style="color:{{ rc }}">{{ "%.1f"|format(s.risk_score) }}</strong>
+            </td>
+            <td>
+              <span class="dot dot-{{ s.status }}"></span>{{ s.status }}
+            </td>
+            {% if summary_only %}
+            <td>{{ s.fail_count }}</td>
+            {% endif %}
+            <td>{{ "%.0f"|format(s.scan_duration_seconds) }}s</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" style="text-align:center;color:var(--text-muted)">No servers scanned.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== TOP CRITICAL SERVERS ===== -->
+  {% if top_critical_servers %}
+  <section class="section" id="critical">
+    <h2 class="section-title"><span>🚨</span> Top Critical Servers</h2>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>IP Address</th>
+            <th>Hostname</th>
+            <th>Risk Score</th>
+            <th>Critical Findings</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in top_critical_servers %}
+          <tr>
+            <td><strong>{{ loop.index }}</strong></td>
+            <td><code>{{ s.ip }}</code></td>
+            <td>{{ s.hostname }}</td>
+            <td><strong style="color:var(--critical)">{{ "%.1f"|format(s.risk_score) }}</strong></td>
+            <td><span class="badge badge-critical">{{ s.critical_count }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- ===== COMMON FINDINGS ===== -->
+  {% if common_findings %}
+  <section class="section" id="common">
+    <h2 class="section-title"><span>🔁</span> Common Findings</h2>
+    <p style="color:var(--text-muted);margin-bottom:1rem">
+      Security issues appearing on <strong>3 or more servers</strong> — these represent systemic risks requiring priority remediation.
+    </p>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Finding</th>
+            <th>Severity</th>
+            <th>Affected Servers</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in common_findings %}
+          <tr>
+            <td>{{ f.check }}</td>
+            <td><span class="badge badge-{{ f.severity|lower }}">{{ f.severity }}</span></td>
+            <td><strong>{{ f.count }}</strong> servers</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- ===== SERVER DETAILS (consolidated only) ===== -->
+  {% if not summary_only %}
+  <section class="section" id="details">
+    <h2 class="section-title"><span>📁</span> Server Details</h2>
+    {% for s in servers %}
+    <details>
+      <summary>
+        <span class="dot dot-{{ s.status }}"></span>
+        <code>{{ s.ip }}</code>
+        <span style="color:var(--text-muted);font-weight:400">&nbsp;{{ s.hostname }}</span>
+        &nbsp;
+        {% set rc = "var(--critical)" if s.risk_score >= 8 else "var(--high)" if s.risk_score >= 6 else "var(--medium)" if s.risk_score >= 4 else "var(--low)" %}
+        <span style="margin-left:auto;color:{{ rc }}">Risk {{ "%.1f"|format(s.risk_score) }}/10</span>
+      </summary>
+      <div class="details-body">
+        {% if s.status != 'success' %}
+        <p style="color:var(--critical)">⚠ Scan failed: {{ s.error_message }}</p>
+        {% elif s.findings %}
+        <table class="data-table">
+          <thead>
+            <tr><th>Check</th><th>Status</th><th>Severity</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            {% for f in s.findings %}
+            <tr>
+              <td>{{ f.check }}</td>
+              <td><span class="badge badge-{{ f.status|lower }}">{{ f.status }}</span></td>
+              <td><span class="badge badge-{{ f.severity|lower }}">{{ f.severity }}</span></td>
+              <td style="font-size:.85rem;color:var(--text-muted)">{{ f.description }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p style="color:var(--text-muted)">No findings recorded.</p>
+        {% endif %}
+      </div>
+    </details>
+    {% else %}
+    <p style="color:var(--text-muted)">No server results available.</p>
+    {% endfor %}
+  </section>
+
+  <!-- ===== TECHNICAL APPENDIX ===== -->
+  <section class="section" id="appendix">
+    <h2 class="section-title"><span>🔧</span> Technical Appendix</h2>
+    <details>
+      <summary>Raw scan data (JSON)</summary>
+      <div class="details-body">
+        <pre>{{ raw_json }}</pre>
+      </div>
+    </details>
+  </section>
+  {% endif %}
+
+</div><!-- /container -->
+
+<footer style="text-align:center;padding:2rem;color:var(--text-muted);font-size:.8rem;border-top:1px solid var(--border)">
+  Infrastructure Security Auditor v{{ app_version }} &nbsp;·&nbsp; Generated {{ report_generated }}
+</footer>
+
+</body>
+</html>

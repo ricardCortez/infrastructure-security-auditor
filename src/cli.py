@@ -2,6 +2,17 @@
 
 Provides command-line commands for scanning, reporting, and version information
 via the Click framework.
+
+Commands
+--------
+scan            Scan a single server (Windows or Linux).
+analyze         Analyze scan results JSON.
+report          Generate HTML report from scan results.
+discover        Discover live hosts in a network range.
+scan-network    Discover + scan an entire network.
+report-network  Generate consolidated HTML network report.
+interactive     Launch interactive TUI dashboard.
+version         Print application version.
 """
 
 from __future__ import annotations
@@ -449,3 +460,387 @@ def _run_analysis(scan_results: dict) -> None:
         analysis["scan_duration_seconds"] = scan_results.get("scan_duration_seconds", 0)
 
     _print_analysis_summary(analysis)
+
+
+# ---------------------------------------------------------------------------
+# discover command  (Phase 5)
+# ---------------------------------------------------------------------------
+
+
+@cli.command("discover")
+@click.option(
+    "--network",
+    "-n",
+    required=True,
+    help="Network range: CIDR (192.168.0.0/24) or IP range (192.168.1.1-100).",
+)
+@click.option(
+    "--timeout",
+    default=3,
+    show_default=True,
+    help="Ping timeout per host in seconds.",
+)
+@click.option(
+    "--max-workers",
+    "max_workers",
+    default=100,
+    show_default=True,
+    help="Parallel discovery threads.",
+)
+@click.option(
+    "--output",
+    "-o",
+    default=None,
+    help="Save discovery results to JSON (default: discovery_<network>.json).",
+)
+def discover(
+    network: str,
+    timeout: int,
+    max_workers: int,
+    output: str | None,
+) -> None:
+    """Discover all live hosts in a network range.
+
+    Performs a parallel ping sweep followed by port-based OS detection.
+    Saves discovered hosts as JSON for use with ``scan-network``.
+
+    Examples:\n
+        python auditor.py discover --network 192.168.0.0/24\n
+        python auditor.py discover --network 10.0.0.1-50 --timeout 2 --output hosts.json
+    """
+    console.print(
+        Panel.fit(
+            f"[bold cyan]Network Discovery[/bold cyan]\n"
+            f"Range: [yellow]{network}[/yellow]  "
+            f"Timeout: [yellow]{timeout}s[/yellow]  "
+            f"Workers: [yellow]{max_workers}[/yellow]",
+            border_style="cyan",
+        )
+    )
+
+    try:
+        from src.scanner.network_discovery import NetworkDiscovery
+
+        nd = NetworkDiscovery(network, timeout=timeout, max_workers=max_workers)
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            task = progress.add_task(f"Scanning {network}...", total=None)
+            hosts = nd.discover_hosts()
+            progress.update(task, description=f"Discovery complete — {len(hosts)} hosts ✓")
+
+    except ValueError as exc:
+        console.print(f"[red]✗ Invalid network range: {exc}[/red]")
+        sys.exit(1)
+    except Exception as exc:
+        console.print(f"[red]✗ Discovery failed: {exc}[/red]")
+        logger.exception("Discovery error")
+        sys.exit(1)
+
+    info = nd.get_network_info()
+
+    # Pretty table
+    tbl = Table(title=f"Discovered Hosts — {network}", border_style="cyan")
+    tbl.add_column("IP", style="cyan", width=15)
+    tbl.add_column("Hostname", style="white", width=25)
+    tbl.add_column("OS Hint", width=10)
+    tbl.add_column("Open Ports", style="dim", width=20)
+    tbl.add_column("RTT ms", justify="right", width=8)
+    for h in hosts:
+        ports_str = ", ".join(str(p) for p in h.get("ports_open", []))
+        tbl.add_row(
+            h["ip"],
+            h.get("hostname", "unknown")[:24],
+            h.get("os_hint", "unknown"),
+            ports_str or "-",
+            str(h.get("response_time_ms", 0)),
+        )
+    console.print(tbl)
+    console.print(
+        f"\n[green]✓ {info['discovered_hosts']} live hosts in "
+        f"{info['discovery_duration_seconds']:.1f}s[/green]  "
+        f"(Windows: {info['windows_hosts']}, Linux: {info['linux_hosts']}, "
+        f"Unknown: {info['unknown_os']})"
+    )
+
+    # Save
+    safe = network.replace("/", "_").replace(".", "_")
+    out_path = Path(output) if output else Path(f"discovery_{safe}.json")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(
+        json.dumps({"network_info": info, "discovered_hosts": hosts}, indent=2, default=str),
+        encoding="utf-8",
+    )
+    console.print(f"[green]✓ Saved:[/green] [bold]{out_path}[/bold]")
+
+
+# ---------------------------------------------------------------------------
+# scan-network command  (Phase 5)
+# ---------------------------------------------------------------------------
+
+
+@cli.command("scan-network")
+@click.option(
+    "--network",
+    "-n",
+    default=None,
+    help="Network range (auto-discovers hosts first).",
+)
+@click.option(
+    "--file",
+    "-f",
+    "hosts_file",
+    default=None,
+    type=click.Path(exists=True, readable=True),
+    help="JSON file with discovered hosts (from ``discover`` command).",
+)
+@click.option(
+    "--output",
+    "-o",
+    default=None,
+    help="Save batch scan results JSON (default: network_scan_<network>.json).",
+)
+@click.option(
+    "--max-workers",
+    "max_workers",
+    default=10,
+    show_default=True,
+    help="Parallel scan workers.",
+)
+@click.option(
+    "--timeout",
+    default=300,
+    show_default=True,
+    help="Per-host scan timeout in seconds.",
+)
+@click.option(
+    "--username",
+    default=None,
+    envvar="WINRM_USERNAME",
+    help="Credential username forwarded to each scanner.",
+)
+@click.option(
+    "--password",
+    default=None,
+    envvar="WINRM_PASSWORD",
+    help="Credential password forwarded to each scanner.",
+)
+def scan_network(
+    network: str | None,
+    hosts_file: str | None,
+    output: str | None,
+    max_workers: int,
+    timeout: int,
+    username: str | None,
+    password: str | None,
+) -> None:
+    """Scan an entire network in parallel.
+
+    Provide either ``--network`` (auto-discovers hosts first) or
+    ``--file`` (JSON from ``auditor discover``).  Results are saved
+    as a JSON file consumable by ``report-network``.
+
+    Examples:\n
+        python auditor.py scan-network --network 192.168.0.0/24\n
+        python auditor.py scan-network --file discovery.json --max-workers 20
+    """
+    if not network and not hosts_file:
+        console.print("[red]✗ Provide --network or --file.[/red]")
+        sys.exit(1)
+
+    console.print(
+        Panel.fit(
+            "[bold cyan]Network Security Scan[/bold cyan]\n"
+            + (f"Network: [yellow]{network}[/yellow]" if network else f"File: [yellow]{hosts_file}[/yellow]")
+            + f"  Workers: [yellow]{max_workers}[/yellow]",
+            border_style="cyan",
+        )
+    )
+
+    # --- Gather hosts ---
+    hosts: list[dict] = []
+    net_label = network or "network"
+
+    if hosts_file:
+        try:
+            raw = json.loads(Path(hosts_file).read_text(encoding="utf-8"))
+            hosts = raw.get("discovered_hosts", raw) if isinstance(raw, dict) else raw
+            console.print(f"[green]✓ Loaded {len(hosts)} hosts from {hosts_file}[/green]")
+        except Exception as exc:
+            console.print(f"[red]✗ Cannot read hosts file: {exc}[/red]")
+            sys.exit(1)
+    else:
+        try:
+            from src.scanner.network_discovery import NetworkDiscovery
+
+            nd = NetworkDiscovery(str(network), timeout=5, max_workers=100)
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console,
+            ) as progress:
+                task = progress.add_task(f"Discovering {network}...", total=None)
+                hosts = nd.discover_hosts()
+                progress.update(task, description=f"Found {len(hosts)} hosts ✓")
+        except Exception as exc:
+            console.print(f"[red]✗ Discovery failed: {exc}[/red]")
+            logger.exception("Discovery error")
+            sys.exit(1)
+
+    if not hosts:
+        console.print("[yellow]No live hosts found — nothing to scan.[/yellow]")
+        sys.exit(0)
+
+    console.print(f"[cyan]Scanning {len(hosts)} hosts with {max_workers} workers...[/cyan]")
+
+    # --- Batch scan ---
+    credentials: dict[str, str] = {}
+    if username and password:
+        credentials = {"username": username, "password": password}
+
+    try:
+        from src.scanner.batch_scanner import BatchScanner
+
+        batch = BatchScanner(hosts, max_workers=max_workers, timeout=timeout,
+                             credentials=credentials or None)
+        results = batch.scan_with_progress()
+    except Exception as exc:
+        console.print(f"[red]✗ Batch scan failed: {exc}[/red]")
+        logger.exception("Batch scan error")
+        sys.exit(1)
+
+    ns = results.get("network_summary", {})
+    summary_tbl = Table(title="Network Scan Summary", border_style="cyan")
+    summary_tbl.add_column("Metric")
+    summary_tbl.add_column("Value", justify="right")
+    summary_tbl.add_row("Servers scanned", str(ns.get("total_servers_scanned", 0)))
+    summary_tbl.add_row("[green]Successful[/green]", str(ns.get("successful_scans", 0)))
+    summary_tbl.add_row("[red]Failed[/red]", str(ns.get("failed_scans", 0)))
+    summary_tbl.add_row("[red]Critical findings[/red]", str(ns.get("critical_findings", 0)))
+    summary_tbl.add_row("[dark_orange]High findings[/dark_orange]", str(ns.get("high_findings", 0)))
+    console.print(summary_tbl)
+
+    safe = net_label.replace("/", "_").replace(".", "_")
+    out_path = Path(output) if output else Path(f"network_scan_{safe}.json")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(results, indent=2, default=str), encoding="utf-8")
+    console.print(f"\n[green]✓ Results saved:[/green] [bold]{out_path}[/bold]")
+
+
+# ---------------------------------------------------------------------------
+# report-network command  (Phase 5)
+# ---------------------------------------------------------------------------
+
+
+@cli.command("report-network")
+@click.option(
+    "--input",
+    "-i",
+    "input_file",
+    required=True,
+    type=click.Path(exists=True, readable=True),
+    help="JSON file from ``scan-network`` command.",
+)
+@click.option(
+    "--output",
+    "-o",
+    default=None,
+    help="Output directory (default: reports/network_<network>/).",
+)
+@click.option(
+    "--summary-only",
+    is_flag=True,
+    default=False,
+    help="Generate lightweight summary page only.",
+)
+def report_network(
+    input_file: str,
+    output: str | None,
+    summary_only: bool,
+) -> None:
+    """Generate a consolidated HTML report from a network scan.
+
+    Reads the JSON produced by ``scan-network`` and renders a
+    professional HTML report with per-server details, compliance heatmap,
+    and remediation roadmap.
+
+    Examples:\n
+        python auditor.py report-network --input network_scan.json\n
+        python auditor.py report-network --input network_scan.json --summary-only
+    """
+    console.print(
+        Panel.fit(
+            "[bold cyan]Network Report Generator[/bold cyan]",
+            border_style="cyan",
+        )
+    )
+
+    try:
+        data = json.loads(Path(input_file).read_text(encoding="utf-8"))
+    except Exception as exc:
+        console.print(f"[red]✗ Cannot read input file: {exc}[/red]")
+        sys.exit(1)
+
+    if "servers" not in data:
+        console.print("[red]✗ Input is not a network scan (missing 'servers' key).[/red]")
+        sys.exit(1)
+
+    net_label = data.get("network", "network")
+    safe = net_label.replace("/", "_").replace(".", "_")
+    out_dir = output or f"reports/network_{safe}"
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        task = progress.add_task("Rendering HTML reports...", total=None)
+        try:
+            from src.reporter.network_reporter import NetworkReporter
+
+            reporter = NetworkReporter(data)
+            if summary_only:
+                out = Path(out_dir)
+                out.mkdir(parents=True, exist_ok=True)
+                p = out / "network_summary.html"
+                p.write_text(reporter.generate_network_summary(), encoding="utf-8")
+                progress.update(task, description="Summary rendered ✓")
+                console.print(f"\n[green]✓ Summary:[/green] [bold]{p}[/bold]")
+            else:
+                paths = reporter.save_reports(out_dir)
+                progress.update(task, description="Reports rendered ✓")
+                console.print(
+                    f"\n[green]✓ Consolidated:[/green] [bold]{paths['consolidated_path']}[/bold]\n"
+                    f"[green]✓ Summary:     [/green] [bold]{paths['summary_path']}[/bold]"
+                )
+        except Exception as exc:
+            console.print(f"[red]✗ Report generation failed: {exc}[/red]")
+            logger.exception("Network report error")
+            sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# interactive command  (Phase 6)
+# ---------------------------------------------------------------------------
+
+
+@cli.command("interactive")
+def interactive() -> None:
+    """Launch the interactive TUI dashboard.
+
+    Presents a menu-driven interface for scanning servers, discovering
+    networks, and generating reports — no flags required.
+
+    Examples:\n
+        python auditor.py interactive
+    """
+    try:
+        from src.tui.interactive import run_interactive
+
+        run_interactive()
+    except ImportError as exc:
+        console.print(f"[red]✗ TUI unavailable: {exc}[/red]")
+        sys.exit(1)

@@ -11,6 +11,10 @@ python-dotenv>=1.0.0
 rich>=13.7.0
 requests>=2.31.0
 
+# Phase 5 – Network Discovery (optional: scapy for ARP scanning on local LAN)
+# scapy requires admin/root; ping-based discovery works without it
+# scapy>=2.5.0
+
 # Development / testing (optional – install separately)
 # pytest>=7.4.0
 # pytest-cov>=4.1.0
