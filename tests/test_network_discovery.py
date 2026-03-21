@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import socket
 import subprocess
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
