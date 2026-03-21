@@ -80,7 +80,7 @@ def _run_auditor_scan(asset_id: int, target: str, os_type: str) -> None:
     Formatters.info(f"Job {job_id} started - scanning {target} ({os_type})...")
 
     # Run auditor subprocess — force plain output (no Rich spinners in subprocess)
-    out_file = Path(f"{target}_scan.json")
+    out_file = Path(f"{target.replace('.', '_')}_scan.json")
     cmd = [sys.executable, str(_AUDITOR), "scan", "--target", target, "--os", os_type]
     env = os.environ.copy()
     env["TERM"] = "dumb"           # disables Rich color/spinner in child process
@@ -117,7 +117,7 @@ def _run_auditor_scan(asset_id: int, target: str, os_type: str) -> None:
         try:
             scan_data = json.loads(out_file.read_text(encoding="utf-8"))
             for item in scan_data.get("findings", []):
-                if item.get("status") is False:   # failing check = a real finding
+                if item.get("status") in (False, "FAIL", "WARNING"):  # failing check
                     db.insert("findings", {
                         "asset_id": asset_id,
                         "title": item.get("check", "Unknown check").replace("_", " ").title(),

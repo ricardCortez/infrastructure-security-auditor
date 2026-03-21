@@ -202,35 +202,66 @@ class TestAuditorCommands:
         assert "scan" in result.output
         assert "results" in result.output
 
-    def test_auditor_scan_queued(self, runner, seed_asset) -> None:
-        result = runner.invoke(cli, [
-            "auditor", "scan",
-            "--asset-id", str(seed_asset["id"]),
-            "--target", "192.168.1.100",
-            "--scan-type", "full",
-        ])
-        assert result.exit_code == 0
-
-    def test_auditor_scan_quick(self, runner, seed_asset) -> None:
-        result = runner.invoke(cli, [
-            "auditor", "scan",
-            "--asset-id", str(seed_asset["id"]),
-            "--target", "10.0.0.5",
-            "--scan-type", "quick",
-        ])
-        assert result.exit_code == 0
-
     def test_auditor_results_empty(self, runner) -> None:
         result = runner.invoke(cli, ["auditor", "results"])
         assert result.exit_code == 0
+        assert "No auditor findings" in result.output
 
-    def test_auditor_results_table(self, runner, seed_finding) -> None:
+    def test_auditor_results_shows_only_auditor_source(self, runner, seed_asset) -> None:
+        """Only findings with source='auditor' appear, not 'manual'."""
+        db.insert("findings", {
+            "asset_id": seed_asset["id"],
+            "title": "Manual finding",
+            "severity": "LOW",
+            "status": "OPEN",
+            "source": "manual",
+        })
+        db.insert("findings", {
+            "asset_id": seed_asset["id"],
+            "title": "Auditor finding",
+            "severity": "HIGH",
+            "status": "OPEN",
+            "source": "auditor",
+        })
         result = runner.invoke(cli, ["auditor", "results"])
         assert result.exit_code == 0
+        assert "Auditor finding" in result.output
+        assert "Manual finding" not in result.output
 
-    def test_auditor_results_json(self, runner, seed_finding) -> None:
+    def test_auditor_results_json_format(self, runner, seed_asset) -> None:
+        db.insert("findings", {
+            "asset_id": seed_asset["id"],
+            "title": "SSH weak key",
+            "severity": "MEDIUM",
+            "status": "OPEN",
+            "source": "auditor",
+        })
         result = runner.invoke(cli, ["auditor", "results", "--format", "json"])
         assert result.exit_code == 0
+
+    def test_auditor_scan_creates_asset_if_missing(self, runner) -> None:
+        """auditor scan auto-creates asset from target IP."""
+        from unittest.mock import patch
+        with patch("cli.commands.scans._run_auditor_scan"):
+            result = runner.invoke(cli, [
+                "auditor", "scan",
+                "--target", "10.10.10.99",
+                "--os-type", "linux",
+            ])
+        assert result.exit_code == 0
+        assets = db.get_all("assets", {"ip_address": "10.10.10.99"})
+        assert len(assets) == 1
+
+    def test_auditor_scan_reuses_existing_asset(self, runner, seed_asset) -> None:
+        """If asset with same IP already exists, no duplicate is created."""
+        from unittest.mock import patch
+        with patch("cli.commands.scans._run_auditor_scan"):
+            runner.invoke(cli, [
+                "auditor", "scan",
+                "--target", seed_asset["ip_address"],
+            ])
+        assets = db.get_all("assets", {"ip_address": seed_asset["ip_address"]})
+        assert len(assets) == 1
 
 
 # ── global options ─────────────────────────────────────────────────

@@ -1,0 +1,7 @@
+{
+  "pythonVersion": "3.11",
+  "include": ["."],
+  "extraPaths": [".", "backend", "src"],
+  "reportMissingModuleSource": "none",
+  "reportMissingImports": "none"
+}

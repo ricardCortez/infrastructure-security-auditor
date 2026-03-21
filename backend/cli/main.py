@@ -302,7 +302,7 @@ class PSICLIApp:
     def _launch_auditor_tui(self) -> None:
         """Launch the full auditor interactive TUI as a subprocess."""
         import subprocess
-        _AUDITOR = Path(__file__).resolve().parents[3] / "auditor.py"
+        _AUDITOR = Path(__file__).resolve().parents[2] / "auditor.py"
         if not _AUDITOR.exists():
             Formatters.error(f"auditor.py not found at {_AUDITOR}")
             self._pause()

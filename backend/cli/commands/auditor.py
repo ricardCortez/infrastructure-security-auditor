@@ -1,7 +1,7 @@
 """Infrastructure Auditor CLI commands for PSI platform."""
 import click
-from ..api_client import api
 from ..formatters import Formatters
+from .. import local_db as db
 
 
 @click.group()
@@ -10,61 +10,67 @@ def auditor_group() -> None:
     pass
 
 
+def _get_or_create_asset_id(target: str) -> int:
+    """Return asset ID for *target*, creating a new asset if one doesn't exist."""
+    for field in ("ip_address", "hostname"):
+        rows = db.get_all("assets", {field: target})
+        if rows:
+            Formatters.info(f"Asset encontrado: ID={rows[0]['id']} ({target})")
+            return rows[0]["id"]
+    row = db.insert("assets", {
+        "hostname": target,
+        "ip_address": target,
+        "asset_type": "server",
+        "criticality": "medium",
+    })
+    Formatters.success(f"Asset creado automaticamente: ID={row['id']} ({target})")
+    return row["id"]
+
+
 @auditor_group.command("scan")
-@click.option("--asset-id", type=int, required=True, prompt="Asset ID")
-@click.option("--target", required=True, prompt="Target (IP or hostname)")
+@click.option("--target", default=None, help="IP or hostname to scan")
 @click.option(
-    "--scan-type",
-    type=click.Choice(["full", "quick", "network"]),
-    default="full",
+    "--os-type", "os_type",
+    type=click.Choice(["windows", "linux", "auto"]),
+    default="auto",
     show_default=True,
 )
-def scan(asset_id: int, target: str, scan_type: str) -> None:
+def scan(target: str, os_type: str) -> None:
     """Run an infrastructure security auditor scan on a target."""
-    Formatters.info(f"Queuing infrastructure auditor scan on {target} (type={scan_type})...")
-    response = api.post(
-        "/jobs",
-        json={
-            "asset_id": asset_id,
-            "job_type": "infrastructure_auditor_scan",
-            "target": target,
-            "scan_type": scan_type,
-            "status": "queued",
-        },
-    )
-    if response.status_code in [200, 201]:
-        job = response.json()
-        Formatters.success(f"Scan job queued: {job.get('id')}")
-    else:
-        Formatters.error(f"Failed to start scan: {response.status_code}")
+    from .scans import _run_auditor_scan
+
+    if not target:
+        target = click.prompt("Target (IP or hostname)")
+
+    asset_id = _get_or_create_asset_id(target)
+    _run_auditor_scan(asset_id, target, os_type)
 
 
 @auditor_group.command("results")
 @click.option(
-    "--format",
-    "output_format",
+    "--format", "output_format",
     type=click.Choice(["table", "json"]),
     default="table",
     show_default=True,
 )
 def results(output_format: str) -> None:
-    """View latest infrastructure auditor scan results."""
-    response = api.get("/findings", params={"source": "infrastructure-auditor"})
-    if response.status_code == 200:
-        findings = response.json()
-        if output_format == "json":
-            Formatters.json_output(findings)
-        else:
-            headers = ["ID", "Title", "Severity", "Description"]
-            table_data = [
-                [
-                    f.get("id"),
-                    (f.get("title") or "")[:40],
-                    f.get("severity"),
-                    (f.get("description") or "")[:40],
-                ]
-                for f in findings
-            ]
-            Formatters.table(table_data, headers=headers, title=f"Auditor Results ({len(findings)})")
+    """View findings imported from infrastructure auditor scans."""
+    findings = db.get_all("findings", {"source": "auditor"})
+    if not findings:
+        Formatters.info("No auditor findings yet. Run: Infrastructure Auditor -> Run scan (quick)")
+        return
+    if output_format == "json":
+        Formatters.json_output(findings)
     else:
-        Formatters.error(f"Failed to fetch results: {response.status_code}")
+        headers = ["ID", "Asset", "Severity", "Title", "Status"]
+        rows = [
+            [
+                f.get("id"),
+                f.get("asset_id", "-"),
+                f.get("severity"),
+                (f.get("title") or "")[:45],
+                f.get("status"),
+            ]
+            for f in findings
+        ]
+        Formatters.table(rows, headers=headers, title=f"Auditor Findings ({len(findings)})")
