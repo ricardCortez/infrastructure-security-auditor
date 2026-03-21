@@ -1,0 +1,133 @@
+{
+  "server": "localhost",
+  "timestamp": "2026-03-21T05:35:50.996208+00:00",
+  "scan_duration_seconds": 3.1,
+  "findings": [
+    {
+      "check": "Password Policies",
+      "status": "FAIL",
+      "severity": "MEDIUM",
+      "description": "Password policy weaknesses detected: Minimum password length is 0 (should be \u226512).",
+      "recommendation": "Configure via Group Policy: Computer Configuration \u2192 Windows Settings \u2192 Security Settings \u2192 Account Policies \u2192 Password Policy. Set min length \u226512, max age \u226490 days, enable complexity, set lockout threshold \u22645.",
+      "raw_output": "Force user logoff how long after time expires?:       Never\nMinimum password age (days):                          0\nMaximum password age (days):                          Unlimited\nMinimum password length:                              0\nLength of password history maintained:                None\nLockout threshold:                                    10\nLockout duration (minutes):                           10\nLockout observation window (minutes):                 10\nComputer role:                                        WORKSTATION\nThe command completed successfully."
+    },
+    {
+      "check": "RDP NLA",
+      "status": "PASS",
+      "severity": "HIGH",
+      "description": "RDP requires Network Level Authentication (NLA).",
+      "recommendation": "No action required.",
+      "raw_output": "1"
+    },
+    {
+      "check": "Installed Software",
+      "status": "PASS",
+      "severity": "LOW",
+      "description": "No obvious EOL software detected from the installed packages list.",
+      "recommendation": "Maintain an up-to-date software inventory and regularly review EOL dates.",
+      "raw_output": "[\n    {\n        \"DisplayName\":  \"Armoury Crate Service\",\n        \"DisplayVersion\":  \"6.3.9.0\"\n    },\n    {\n        \"DisplayName\":  \"CrystalDiskInfo 9.7.2\",\n        \"DisplayVersion\":  \"9.7.2\"\n    },\n    {\n        \"DisplayName\":  \"Docker Desktop\",\n        \"DisplayVersion\":  \"4.65.0\"\n    },\n    {\n        \"DisplayName\":  \"Git\",\n        \"DisplayVersion\":  \"2.53.0\"\n    },\n    {\n        \"DisplayName\":  \"Aplicaciones de Microsoft 365 para empresas - es-es\",\n        \"DisplayVersion\":  \"16.0.19426.20218\"\n"
+    },
+    {
+      "check": "Event Log Config",
+      "status": "FAIL",
+      "severity": "MEDIUM",
+      "description": "Event log configuration issues: Security log is only 20 MB (min recommended: 64 MB); System log is only 20 MB (min recommended: 64 MB); Application log is only 20 MB (min recommended: 64 MB).",
+      "recommendation": "Configure via GPO: Computer Configuration \u2192 Windows Settings \u2192 Security Settings \u2192 Event Log. Set Security log to \u2265128 MB with RetentionDays=0 (overwrite as needed).",
+      "raw_output": "[\n    {\n        \"LogName\":  \"Security\",\n        \"MaximumSizeInBytes\":  20971520,\n        \"IsEnabled\":  true\n    },\n    {\n        \"LogName\":  \"System\",\n        \"MaximumSizeInBytes\":  20971520,\n        \"IsEnabled\":  true\n    },\n    {\n        \"LogName\":  \"Application\",\n        \"MaximumSizeInBytes\":  20971520,\n        \"IsEnabled\":  true\n    }\n]"
+    },
+    {
+      "check": "LSASS Protection",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "description": "LSASS is vulnerable to credential dumping: LSASS Protected Process Light (RunAsPPL) is not enabled; Credential Guard is not enabled. Tools like Mimikatz can extract plaintext credentials.",
+      "recommendation": "Enable RunAsPPL: Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa' -Name RunAsPPL -Value 1. Enable Credential Guard via GPO or Device Guard.",
+      "raw_output": ""
+    },
+    {
+      "check": "Admin Accounts",
+      "status": "PASS",
+      "severity": "HIGH",
+      "description": "Administrator group has 2 member(s): DESKTOP-UCPT1TK\\Administrator, DESKTOP-UCPT1TK\\PC.",
+      "recommendation": "Periodically review and audit administrator group membership.",
+      "raw_output": "[\n    {\n        \"Name\":  \"DESKTOP-UCPT1TK\\\\Administrator\",\n        \"ObjectClass\":  \"User\"\n    },\n    {\n        \"Name\":  \"DESKTOP-UCPT1TK\\\\PC\",\n        \"ObjectClass\":  \"User\"\n    }\n]"
+    },
+    {
+      "check": "LLMNR/NetBIOS",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "description": "Name-poisoning attack surface is EXPOSED: LLMNR is enabled; NetBIOS over TCP/IP is enabled on one or more adapters.",
+      "recommendation": "Disable LLMNR via GPO: Computer Configuration \u2192 Administrative Templates \u2192 Network \u2192 DNS Client \u2192 Turn Off Multicast Name Resolution = Enabled. Disable NetBIOS via NIC settings or DHCP option 001.",
+      "raw_output": "LLMNR: \nNetBIOS: 0\n0\n0"
+    },
+    {
+      "check": "Windows Update",
+      "status": "WARNING",
+      "severity": "MEDIUM",
+      "description": "Could not query Windows Update Agent. Manual verification required.",
+      "recommendation": "Ensure Windows Update service is running and check for pending updates.",
+      "raw_output": "error"
+    },
+    {
+      "check": "SMBv1 Protocol",
+      "status": "PASS",
+      "severity": "CRITICAL",
+      "description": "SMBv1 is disabled. The host is protected against EternalBlue-class attacks.",
+      "recommendation": "No action required.",
+      "raw_output": "False"
+    },
+    {
+      "check": "File Sharing",
+      "status": "PASS",
+      "severity": "MEDIUM",
+      "description": "No SMB shares with overly permissive Everyone/Authenticated Users access.",
+      "recommendation": "Periodically audit share permissions with Get-SmbShareAccess.",
+      "raw_output": "[\n    {\n        \"Name\":  \"ADMIN$\",\n        \"Path\":  \"C:\\\\Windows\",\n        \"Description\":  \"Remote Admin\"\n    },\n    {\n        \"Name\":  \"C$\",\n        \"Path\":  \"C:\\\\\",\n        \"Description\":  \"Default share\"\n    },\n    {\n        \"Name\":  \"D$\",\n        \"Path\":  \"D:\\\\\",\n        \"Description\":  \"Default share\"\n    },\n    {\n        \"Name\":  \"E$\",\n        \"Path\":  \"E:\\\\\",\n        \"Description\":  \"Default share\"\n    },\n    {\n        \"Name\":  \"F$\",\n        \"Path\":  \"F:\\\\\",\n        \"Description\":  \"Default share\"\n    },\n    {\n        \"Name\":  \"G$\",\n        \"Path\":  \"G:\\\\\",\n        \"Description\":  \"Default share\"\n    },\n    {\n        \"Name\":  \"IPC$\",\n        \"Path\":  \"\",\n        \"Description\":  \"Remote IPC\"\n    }\n]"
+    },
+    {
+      "check": "Windows Defender",
+      "status": "PASS",
+      "severity": "HIGH",
+      "description": "Windows Defender is active and signatures are current.",
+      "recommendation": "No action required. Ensure signatures update automatically.",
+      "raw_output": "{\n    \"RealTimeProtectionEnabled\":  true,\n    \"AntivirusEnabled\":  true,\n    \"AntivirusSignatureLastUpdated\":  \"\\/Date(1774035354000)\\/\",\n    \"AntivirusSignatureAge\":  0\n}"
+    },
+    {
+      "check": "TLS Versions",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "description": "Deprecated protocols enabled: SSL 2.0, SSL 3.0, TLS 1.0, TLS 1.1. These are vulnerable to POODLE, BEAST, DROWN, and downgrade attacks.",
+      "recommendation": "Disable deprecated protocols via SCHANNEL registry keys. Use IIS Crypto or: New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server' -Force | New-ItemProperty -Name Enabled -Value 0 -PropertyType DWORD -Force",
+      "raw_output": "SSL 2.0: NOT_SET\nSSL 3.0: NOT_SET\nTLS 1.0: NOT_SET\nTLS 1.1: NOT_SET"
+    },
+    {
+      "check": "Privilege Creep",
+      "status": "PASS",
+      "severity": "MEDIUM",
+      "description": "Privileged group memberships appear within expected limits.",
+      "recommendation": "Periodically review privileged group memberships.",
+      "raw_output": "Backup Operators: _EMPTY_\nRemote Desktop Users: _EMPTY_\nRemote Management Users: _EMPTY_\nPower Users: _EMPTY_"
+    },
+    {
+      "check": "Weak Ciphers",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "description": "Weak cipher suites detected: RC4, DES, 3DES, NULL, EXPORT. These enable downgrade attacks and break-in via weak encryption.",
+      "recommendation": "Disable weak ciphers via SCHANNEL registry. Use IIS Crypto tool or configure via: New-Item -Path 'HKLM:\\...\\Ciphers\\RC4 128/128' -Force | New-ItemProperty -Name Enabled -Value 0 -PropertyType DWORD",
+      "raw_output": "RC4: NOT_SET\nDES: NOT_SET\n3DES: NOT_SET\nNULL: NOT_SET\nEXPORT: NOT_SET"
+    },
+    {
+      "check": "Firewall Status",
+      "status": "PASS",
+      "severity": "HIGH",
+      "description": "Windows Firewall is enabled on all network profiles (Domain, Private, Public).",
+      "recommendation": "No action required. Periodically review firewall rules.",
+      "raw_output": "[\n    {\n        \"Name\":  \"Domain\",\n        \"Enabled\":  1\n    },\n    {\n        \"Name\":  \"Private\",\n        \"Enabled\":  1\n    },\n    {\n        \"Name\":  \"Public\",\n        \"Enabled\":  1\n    }\n]"
+    }
+  ],
+  "total_checks": 15,
+  "summary": {
+    "PASS": 8,
+    "FAIL": 6,
+    "WARNING": 1
+  }
+}

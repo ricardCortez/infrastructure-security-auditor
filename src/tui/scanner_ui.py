@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
@@ -54,13 +55,17 @@ def single_server_scan_ui() -> None:
         if confirm("Provide credentials for remote scan?", default=False):
             username = prompt_ip("Username")
             if os_type == "linux":
+                console.print(
+                    "[dim]  Authentication method: SSH key file OR password.\n"
+                    "  If you use a PASSWORD, just press Enter here.[/dim]"
+                )
                 key_path = console.input(
-                    "[cyan]  SSH key path (leave blank for password):[/] "
+                    "[cyan]  SSH key file path (e.g. C:/Users/you/.ssh/id_rsa) — Enter to skip:[/] "
                 ).strip()
                 if key_path:
                     ssh_key = key_path
                 else:
-                    password = console.input("[cyan]  Password:[/] ").strip() or None
+                    password = console.input("[cyan]  SSH Password:[/] ").strip() or None
             else:
                 password = console.input("[cyan]  Password:[/] ").strip() or None
 
@@ -78,15 +83,39 @@ def single_server_scan_ui() -> None:
                 credentials["password"] = password
             from src.scanner.linux_scanner import LinuxScanner
 
-            scanner = LinuxScanner(target=target, credentials=credentials or None)
+            # ── connection test ───────────────────────────────────────
+            is_remote = target not in {"localhost", "127.0.0.1", "::1"}
+            if is_remote and credentials:
+                console.print(f"[dim]  Connecting to {target}...[/dim]", end=" ")
+                try:
+                    scanner = LinuxScanner(target=target, credentials=credentials)
+                    console.print(f"[{SUCCESS}]Connected[/]")
+                except (ConnectionError, ImportError) as exc:
+                    console.print(f"[{ERROR}]Failed[/]")
+                    console.print(f"[{ERROR}]  {exc}[/]")
+                    return
+            else:
+                scanner = LinuxScanner(target=target, credentials=credentials or None)
         else:
             if username and password:
                 credentials = {"username": username, "password": password}
             from src.scanner.windows_scanner import WindowsScanner
 
-            scanner = WindowsScanner(  # type: ignore[assignment]
-                target=target, credentials=credentials or None
-            )
+            # ── connection test ───────────────────────────────────────
+            is_remote = target not in {"localhost", "127.0.0.1", "::1"}
+            if is_remote and credentials:
+                console.print(f"[dim]  Connecting to {target}...[/dim]", end=" ")
+                try:
+                    scanner: Any = WindowsScanner(target=target, credentials=credentials)
+                    console.print(f"[{SUCCESS}]Connected[/]")
+                except (ConnectionError, ImportError) as exc:
+                    console.print(f"[{ERROR}]Failed[/]")
+                    console.print(f"[{ERROR}]  {exc}[/]")
+                    return
+            else:
+                scanner = WindowsScanner(  # type: ignore[assignment]
+                    target=target, credentials=credentials or None
+                )
 
         with Progress(
             SpinnerColumn(),
@@ -95,7 +124,7 @@ def single_server_scan_ui() -> None:
         ) as progress:
             task = progress.add_task(f"Scanning {target}...", total=None)
             scan_result = scanner.run_scan()
-            progress.update(task, description=f"Scan complete — {target} ✓")
+            progress.update(task, description=f"Scan complete - {target} OK")
 
         console.print()
         print_scan_summary(scan_result)
@@ -259,6 +288,25 @@ def network_scan_ui() -> None:
         workers_raw = console.input("[cyan]  Max parallel workers [10]:[/] ").strip()
         max_workers = int(workers_raw) if workers_raw.isdigit() else 10
 
+        # ── credentials for remote hosts ─────────────────────────────
+        batch_credentials: dict[str, str] | None = None
+        if confirm("Provide SSH/WinRM credentials for remote hosts?", default=False):
+            b_user = console.input("[cyan]  Username:[/] ").strip()
+            console.print(
+                "[dim]  SSH key file path OR leave blank to use password.[/dim]"
+            )
+            b_key = console.input(
+                "[cyan]  SSH key file (Enter to skip):[/] "
+            ).strip()
+            if b_key:
+                batch_credentials = {"username": b_user, "key_filename": b_key}
+            else:
+                b_pass = console.input("[cyan]  Password:[/] ").strip()
+                if b_pass:
+                    batch_credentials = {"username": b_user, "password": b_pass}
+                else:
+                    batch_credentials = {"username": b_user}
+
         if not confirm(
             f"Scan {len(hosts)} hosts with {max_workers} workers?", default=True
         ):
@@ -267,7 +315,9 @@ def network_scan_ui() -> None:
 
         from src.scanner.batch_scanner import BatchScanner
 
-        batch = BatchScanner(hosts, max_workers=max_workers, timeout=300)
+        batch = BatchScanner(
+            hosts, max_workers=max_workers, timeout=300, credentials=batch_credentials
+        )
         results = batch.scan_with_progress()
 
         console.print()
@@ -275,14 +325,14 @@ def network_scan_ui() -> None:
         print_network_summary_table(results.get("servers", []))
 
         safe = network.replace("/", "_").replace(".", "_")
-        json_path = Path(f"network_scan_{safe}.json")
+        json_path = Path(f"network_scan_{safe}.json").resolve()
         json_path.write_text(
             json.dumps(results, indent=2, default=str), encoding="utf-8"
         )
         console.print(f"\n[{SUCCESS}]  Scan data saved: {json_path}[/]")
 
         if confirm("Generate HTML network report?", default=True):
-            _generate_network_report(results, network)
+            _generate_network_report(results, network, safe)
 
     except KeyboardInterrupt:
         console.print(f"\n[{ERROR}]  Network scan cancelled.[/]")
@@ -333,7 +383,7 @@ def _generate_single_report(scan_result: dict, target: str) -> None:
         console.print(f"[{ERROR}]  Report generation failed: {exc}[/]")
 
 
-def _generate_network_report(results: dict, network: str) -> None:
+def _generate_network_report(results: dict, network: str, safe: str | None = None) -> None:
     """Run NetworkReporter on batch scan results and save HTML files.
 
     Args:
@@ -343,8 +393,9 @@ def _generate_network_report(results: dict, network: str) -> None:
     try:
         from src.reporter.network_reporter import NetworkReporter
 
-        safe = network.replace("/", "_").replace(".", "_")
-        out_dir = f"reports/network_{safe}"
+        if safe is None:
+            safe = network.replace("/", "_").replace(".", "_")
+        out_dir = (Path.cwd() / "reports" / f"network_{safe}").resolve()
 
         with Progress(
             SpinnerColumn(),
@@ -353,13 +404,15 @@ def _generate_network_report(results: dict, network: str) -> None:
         ) as progress:
             task = progress.add_task("Rendering network report...", total=None)
             reporter = NetworkReporter(results)
-            paths = reporter.save_reports(out_dir)
-            progress.update(task, description="Report saved ✓")
+            paths = reporter.save_reports(str(out_dir))
+            progress.update(task, description="Report saved OK")
 
         console.print(
-            f"[{SUCCESS}]  Network report: {paths['consolidated_path']}[/]\n"
-            f"[{SUCCESS}]  Summary:        {paths['summary_path']}[/]"
+            f"[{SUCCESS}]  HTML report:  {paths['consolidated_path']}[/]\n"
+            f"[{SUCCESS}]  HTML summary: {paths['summary_path']}[/]"
         )
 
     except Exception as exc:  # noqa: BLE001
+        import traceback
         console.print(f"[{ERROR}]  Report generation failed: {exc}[/]")
+        console.print(f"[dim]{traceback.format_exc()}[/dim]")

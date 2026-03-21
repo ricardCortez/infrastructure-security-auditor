@@ -1,0 +1,36 @@
+version: '3.8'
+
+networks:
+  psi-network:
+    driver: bridge
+
+services:
+  api:
+    image: psi-api:latest
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    networks:
+      - psi-network
+
+  worker:
+    image: psi-worker:latest
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    networks:
+      - psi-network

@@ -436,6 +436,45 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
+## PSI Platform (Enterprise Mode)
+
+This repo also includes **PSI – Plataforma de Seguridad Integrada**, a full enterprise security platform built on top of the auditor.
+
+| Component | Description |
+|-----------|-------------|
+| `backend/core-api/` | FastAPI REST API + PostgreSQL + Elasticsearch |
+| `backend/job-orchestrator/` | Celery + Redis task queue (Nessus, OpenVAS, auditor) |
+| `backend/scan-workers/` | Scan worker pool + auditor integration |
+| `backend/cli/` | Interactive PSI TUI (`psi.py`) |
+| `docker/` | Docker Compose stack (API + workers + DB + monitoring) |
+| `monitoring/` | Prometheus + Grafana dashboards |
+
+### Start the full platform
+
+```bash
+# Copy and configure environment
+cp .env.example .env          # add API keys
+
+# Start all services via Docker
+docker-compose -f docker/docker-compose.yml up -d
+
+# PSI CLI (interactive TUI)
+python psi.py menu
+
+# PSI CLI direct commands
+python psi.py auditor scan --asset-id 1 --target 192.168.1.100
+python psi.py findings list --severity CRITICAL
+python psi.py reports generate --format pdf
+```
+
+Or run the automated setup:
+
+```bash
+bash setup.sh
+```
+
+---
+
 ## Support
 
 - Open an issue on GitHub for bug reports and feature requests
